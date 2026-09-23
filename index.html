@@ -1,3 +1,15 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="description" content="Juego de disparos en primera persona en 3D: duelo contra CENTINELA en una arena al atardecer.">
+<meta name="theme-color" content="#13111F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <title>Arena Ocaso</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -16,7 +28,7 @@
   }
   [hidden] { display: none !important; }
   html, body { height: 100%; margin: 0; overflow: hidden; background: var(--ink); color: var(--bone); }
-  body { font-family: "Chakra Petch", ui-monospace, "Segoe UI", sans-serif; -webkit-user-select: none; user-select: none; touch-action: none; }
+  body { font-family: "Chakra Petch", ui-monospace, "Segoe UI", sans-serif; -webkit-user-select: none; user-select: none; touch-action: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
   #game { position: fixed; inset: 0; }
   #view { display: block; width: 100%; height: 100%; }
 
@@ -95,29 +107,56 @@
   .result b { color: var(--bone); }
 
   /* ---------- Touch ---------- */
-  .touch { position: fixed; inset: auto 0 0 0; padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px)); display: none; justify-content: space-between; align-items: end; pointer-events: none; z-index: 3; }
-  .pad { display: grid; grid-template-columns: repeat(3, 56px); grid-template-rows: repeat(2, 56px); gap: 6px; pointer-events: auto; }
-  .touch button { pointer-events: auto; border: 1px solid rgba(243,234,215,.35); background: rgba(19,17,31,.45); color: var(--bone); font: 700 20px "Chakra Petch", sans-serif; border-radius: 10px; touch-action: none; }
-  .touch button.active { background: rgba(228,123,76,.55); }
+  .touch { --btn: clamp(56px, 17vmin, 80px); position: fixed; inset: auto 0 0 0; display: none; justify-content: space-between; align-items: end; pointer-events: none; z-index: 3;
+           padding: 0 calc(20px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(20px + env(safe-area-inset-left, 0px)); }
+  .pad { display: grid; grid-template-columns: repeat(3, var(--btn)); grid-template-rows: repeat(2, var(--btn)); gap: 8px; pointer-events: auto; touch-action: none; }
+  .touch button { pointer-events: auto; border: 1.5px solid rgba(243,234,215,.4); background: rgba(19,17,31,.42); color: var(--bone); font: 700 28px "Chakra Petch", sans-serif; border-radius: 14px; touch-action: none; }
+  .touch button.active { background: rgba(228,123,76,.6); border-color: var(--dusk); }
   .pad [data-k="fwd"] { grid-column: 2; grid-row: 1; }
   .pad [data-k="left"] { grid-column: 1; grid-row: 2; }
   .pad [data-k="back"] { grid-column: 2; grid-row: 2; }
   .pad [data-k="right"] { grid-column: 3; grid-row: 2; }
-  .fire { width: 96px; height: 96px; border-radius: 50% !important; font-size: 14px !important; letter-spacing: .15em; border-color: rgba(228,123,76,.8) !important; }
-  @media (pointer: coarse) {
-    .touch.on { display: flex; }
-    .vitals, .ammo { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); }
-    .vitals { min-width: 0; }
-    .hpnum, #ammoNum { font-size: 32px; }
+  .fire { width: calc(var(--btn) * 1.65); height: calc(var(--btn) * 1.65); border-radius: 50% !important; font-size: 15px !important; letter-spacing: .15em; border-color: rgba(228,123,76,.85) !important; background: rgba(228,123,76,.2) !important; }
+  .fire.active { background: rgba(228,123,76,.65) !important; }
+
+  /* Phone / tablet layout: HUD moves to the top so the thumbs have the bottom corners */
+  body.touch-mode .touch { display: flex; }
+  body.touch-mode .vitals { top: calc(50px + env(safe-area-inset-top, 0px)); bottom: auto; min-width: 0; gap: 2px; }
+  body.touch-mode .ammo { top: calc(154px + env(safe-area-inset-top, 0px)); right: calc(18px + env(safe-area-inset-right, 0px)); bottom: auto; gap: 2px; }
+  body.touch-mode .hud[hidden] ~ .touch { display: none; }
+  body.touch-mode .hpnum, body.touch-mode #ammoNum { font-size: 28px; }
+  body.touch-mode .bar { width: 140px; }
+  body.touch-mode .keys, body.touch-mode .extra { display: none; }
+  .touchhelp { display: none; margin: 0; font-size: 14px; color: var(--muted); max-width: 46ch; }
+  body.touch-mode .touchhelp { display: block; }
+  .install { justify-self: start; font: 600 13px "Chakra Petch", sans-serif; letter-spacing: .18em; text-transform: uppercase; color: var(--bone);
+             background: transparent; border: 1px solid rgba(243,234,215,.45); padding: 10px 16px; cursor: pointer; }
+  .install:focus-visible { outline: 2px solid var(--bone); outline-offset: 3px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  @media (max-height: 520px) {
+    .card { gap: 10px; }
+    h1 { font-size: clamp(40px, 10vh, 64px); }
+    .lede { font-size: 14px; line-height: 1.45; }
+    .go { font-size: 18px; padding: 10px 24px 10px 18px; }
   }
+
+  /* Portrait hint on phones */
+  .rotate { position: fixed; inset: 0; z-index: 20; display: none; place-items: center; text-align: center; padding: 24px; background: var(--ink); }
+  .rotate .phone { width: 46px; height: 78px; border: 3px solid var(--bone); border-radius: 9px; margin: 0 auto 20px; animation: tilt 2.4s ease-in-out infinite; }
+  .rotate p { margin: 0 0 18px; font-size: 18px; line-height: 1.4; }
+  @keyframes tilt { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+  @media (orientation: portrait) { body.touch-mode:not(.allow-portrait) .rotate { display: grid; } }
   @media (max-width: 520px) {
     #radar { width: 96px; height: 96px; top: calc(70px + env(safe-area-inset-top, 0px)); }
     .score { font-size: 11px; gap: 6px; letter-spacing: .1em; }
   }
   @media (prefers-reduced-motion: reduce) {
     .banner, #foeFill, #hpFill { transition: none; }
+    .rotate .phone { animation: none; transform: rotate(-90deg); }
   }
 </style>
+</head>
+<body>
 
 <div id="game">
   <canvas id="view"></canvas>
@@ -172,7 +211,19 @@
         <dt><kbd class="wide">Espacio</kbd></dt><dd>Disparar · recarga automática cada 12 tiros</dd>
       </dl>
       <p class="extra" id="extra">Extra: <b>A</b> / <b>D</b> para moverte de lado · <b>M</b> para silenciar. Usa los bloques como cobertura.</p>
-      <button class="go" id="goBtn" type="button">Entrar a la arena ↵</button>
+      <p class="touchhelp">Usa las flechas de la izquierda para avanzar, retroceder y girar (puedes deslizar el dedo entre ellas) y el botón FUEGO de la derecha para disparar. Recarga automática cada 12 tiros.</p>
+      <div class="actions">
+        <button class="go" id="goBtn" type="button">Entrar a la arena ↵</button>
+        <button class="install" id="installBtn" type="button" hidden>Instalar app</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="rotate" id="rotate">
+    <div>
+      <div class="phone" aria-hidden="true"></div>
+      <p>Gira el teléfono para jugar en horizontal.</p>
+      <button class="install" id="portraitBtn" type="button">Jugar en vertical</button>
     </div>
   </div>
 </div>
@@ -218,7 +269,8 @@
   // ================= Renderer / scene =================
   const canvas = $('view');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const IS_TOUCH = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, IS_TOUCH ? 1.5 : 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -252,7 +304,7 @@
   const sun = new THREE.DirectionalLight(0xFFB27A, 0.95);
   sun.position.copy(sunDir).multiplyScalar(60).setY(28);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(IS_TOUCH ? 1024 : 2048, IS_TOUCH ? 1024 : 2048);
   Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 140 });
   sun.shadow.bias = -0.0006;
   scene.add(sun, sun.target);
@@ -624,15 +676,71 @@
   $('goBtn').addEventListener('click', startMatch);
   $('muteBtn').addEventListener('click', (e) => { setMuted(!muted); e.currentTarget.blur(); });
 
+  // ---- Touch controls
   const touch = $('touch');
-  if (window.matchMedia && matchMedia('(pointer: coarse)').matches) touch.classList.add('on');
-  touch.querySelectorAll('button').forEach((b) => {
-    const k = b.dataset.k;
-    const on = (e) => { e.preventDefault(); initAudio(); keys[k] = true; b.classList.add('active'); };
-    const off = (e) => { e.preventDefault(); keys[k] = false; b.classList.remove('active'); };
-    b.addEventListener('pointerdown', on);
-    ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => b.addEventListener(ev, off));
+  const enableTouchMode = () => document.body.classList.add('touch-mode');
+  if (IS_TOUCH) enableTouchMode();
+  window.addEventListener('touchstart', enableTouchMode, { once: true, passive: true });
+  window.addEventListener('contextmenu', (e) => e.preventDefault());
+  $('portraitBtn').addEventListener('click', () => document.body.classList.add('allow-portrait'));
+
+  // Arrow pad: each finger maps to whichever arrow is under it, so a thumb can slide between arrows.
+  const pad = touch.querySelector('.pad');
+  const padButtons = pad.querySelectorAll('[data-k]');
+  const padPointers = new Map();
+  const padKeyAt = (x, y) => { const el = document.elementFromPoint(x, y); const b = el && el.closest('.pad [data-k]'); return b ? b.dataset.k : null; };
+  function syncPad() {
+    const held = new Set(padPointers.values());
+    padButtons.forEach((b) => { const on = held.has(b.dataset.k); keys[b.dataset.k] = on; b.classList.toggle('active', on); });
+  }
+  pad.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); initAudio();
+    try { pad.setPointerCapture(e.pointerId); } catch (err) {}
+    padPointers.set(e.pointerId, padKeyAt(e.clientX, e.clientY)); syncPad();
   });
+  pad.addEventListener('pointermove', (e) => {
+    if (!padPointers.has(e.pointerId)) return;
+    padPointers.set(e.pointerId, padKeyAt(e.clientX, e.clientY)); syncPad();
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((ev) => pad.addEventListener(ev, (e) => {
+    if (padPointers.delete(e.pointerId)) syncPad();
+  }));
+
+  const fireBtn = touch.querySelector('.fire');
+  fireBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault(); initAudio();
+    try { fireBtn.setPointerCapture(e.pointerId); } catch (err) {}
+    keys.fire = true; firePressed = true; fireBtn.classList.add('active');
+  });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((ev) => fireBtn.addEventListener(ev, () => {
+    keys.fire = false; fireBtn.classList.remove('active');
+  }));
+
+  // Fullscreen + landscape lock on phones (only works from a tap; ignored where unsupported)
+  function goFullscreen() {
+    if (!document.body.classList.contains('touch-mode')) return;
+    if (matchMedia('(display-mode: fullscreen)').matches || document.fullscreenElement) return;
+    const el = document.documentElement;
+    if (!el.requestFullscreen) return;
+    el.requestFullscreen({ navigationUI: 'hide' })
+      .then(() => (screen.orientation && screen.orientation.lock ? screen.orientation.lock('landscape') : null))
+      .catch(() => {});
+  }
+
+  // ---- Install as an app (Android Chrome offers this once the PWA criteria are met)
+  let installPrompt = null;
+  const installBtn = $('installBtn');
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; installBtn.hidden = false; });
+  installBtn.addEventListener('click', async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    try { await installPrompt.userChoice; } catch (err) {}
+    installPrompt = null; installBtn.hidden = true;
+  });
+  window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
 
   // ================= HUD =================
   const hpFill = $('hpFill'), hpNum = $('hpNum'), foeFill = $('foeFill'), ammoNum = $('ammoNum'), ammoState = $('ammoState');
@@ -693,7 +801,7 @@
     showBanner('RONDA ' + round + '<small>' + (round === 1 ? 'Encuentra a CENTINELA' : 'CENTINELA dispara con más precisión') + '</small>', 1600);
   }
   function startMatch() {
-    initAudio();
+    initAudio(); goFullscreen();
     score = { p: 0, b: 0 }; round = 1;
     $('overlay').hidden = true; $('hud').hidden = false; gun.visible = true;
     for (const k in keys) keys[k] = false;
@@ -978,3 +1086,5 @@
   requestAnimationFrame(frame);
 })();
 </script>
+</body>
+</html>

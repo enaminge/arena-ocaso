@@ -14,7 +14,15 @@ Abre `index.html` en el navegador. No hace falta instalar nada; el motor 3D (thr
 | A / D | Moverte de lado |
 | M | Silenciar |
 
-En pantallas táctiles aparecen botones en pantalla.
+En el celular aparecen flechas en pantalla a la izquierda (se puede deslizar el dedo entre ellas) y un botón FUEGO a la derecha. El juego pasa a pantalla completa y en horizontal al empezar.
+
+## Instalar en Android
+
+El juego es una app web instalable (PWA) publicada con GitHub Pages en https://enaminge.github.io/arena-ocaso/
+
+1. Abre esa dirección en Chrome en el teléfono.
+2. Toca **Instalar app** en el menú del juego, o en el menú de Chrome (⋮) elige **Instalar aplicación** / **Agregar a pantalla principal**.
+3. Queda un ícono en el teléfono; se abre en pantalla completa, en horizontal, y funciona sin internet después de la primera visita.
 
 ## Cómo funciona
 

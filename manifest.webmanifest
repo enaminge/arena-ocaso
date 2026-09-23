@@ -1,0 +1,19 @@
+{
+  "name": "Arena Ocaso",
+  "short_name": "Arena Ocaso",
+  "description": "Juego de disparos en primera persona en 3D: duelo contra CENTINELA en una arena al atardecer.",
+  "lang": "es",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#13111F",
+  "theme_color": "#13111F",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
