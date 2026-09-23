@@ -823,7 +823,7 @@
     const won = score.p > score.b;
     $('hud').hidden = true; gun.visible = false;
     $('kicker').textContent = won ? 'Duelo terminado · has ganado' : 'Duelo terminado · has perdido';
-    $('title').innerHTML = won ? 'Victo<span>ria</span>' : 'Derro<span>ta</span>';
+    $('title').innerHTML = won ? '<span>Victoria</span>' : '<span>Derrota</span>';
     $('lede').textContent = won ? 'Has derribado a CENTINELA. En la revancha vuelve a empezar desde la ronda 1.' : 'CENTINELA se queda con la arena. Muévete entre coberturas y no te quedes quieto en campo abierto.';
     const res = $('result'); res.hidden = false; res.innerHTML = 'Marcador final &nbsp;<b>' + score.p + ' — ' + score.b + '</b>';
     $('keys').hidden = true; $('extra').hidden = true;
