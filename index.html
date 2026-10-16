@@ -324,9 +324,15 @@
                note: 'CENTINELA se mueve y dispara más lento, y falla más.' },
     medio:   { name: 'Medio',   speed: 1,    fire: 1,    spread: 1,   react: 1,   dmg: 12,
                note: 'Velocidad y puntería normales.' },
-    dificil: { name: 'Difícil', speed: 1.38, fire: 0.72, spread: 0.6, react: 0.6, dmg: 15,
-               note: 'CENTINELA es mucho más rápido, reacciona antes, apunta mejor y pega más fuerte.' },
+    dificil: { name: 'Difícil', speed: 1.38, fire: 0.72, spread: 0.6, react: 0.6, dmg: 15, weapon: 'plasma',
+               note: 'CENTINELA es mucho más rápido, reacciona antes, apunta mejor y lleva un fusil de plasma, mejor que tu arma: dispara ráfagas de 3 tiros más veloces que los normales.' },
   };
+  // CENTINELA's weapons. dmg null = use the difficulty's damage per hit.
+  const WEAPONS = {
+    rifle:  { speed: 24, burst: 1, gap: 0,    cdMul: 1,   dmg: null, muzzleZ: -1.3,  core: 0xFFB27A, glow: 0xFF7A3A, size: 0.9, radar: '#FFB27A' },
+    plasma: { speed: 34, burst: 3, gap: 0.09, cdMul: 1.7, dmg: 11,   muzzleZ: -1.66, core: 0xF4D6FF, glow: 0xB040FF, size: 1.3, radar: '#D08CFF' },
+  };
+  const weapon = () => WEAPONS[DIFFS[difficulty].weapon || 'rifle'];
   let difficulty = 'medio';
   const diffFor = (r) => {
     const P = DIFFS[difficulty];
@@ -594,11 +600,23 @@
       add(sh, box(0.12, 0.3, 0.14), botDark, 0, -0.48, 0);
       arms.push(sh);
     }
-    add(botGroup, box(0.09, 0.12, 0.8), botDark, 0.05, 1.4, -0.62);       // rifle body
-    add(botGroup, new THREE.CylinderGeometry(0.025, 0.025, 0.3, 8), botDark, 0.05, 1.42, -1.15, Math.PI / 2);
-    add(botGroup, box(0.03, 0.03, 0.4), botRed, 0.1, 1.42, -0.6);        // rifle light strip
+    // Standard rifle (Fácil, Medio)
+    const rifle = new THREE.Group(); botGroup.add(rifle);
+    add(rifle, box(0.09, 0.12, 0.8), botDark, 0.05, 1.4, -0.62);          // body
+    add(rifle, new THREE.CylinderGeometry(0.025, 0.025, 0.3, 8), botDark, 0.05, 1.42, -1.15, Math.PI / 2);
+    add(rifle, box(0.03, 0.03, 0.4), botRed, 0.1, 1.42, -0.6);           // light strip
+    // Plasma rifle (Difícil): bulkier, longer barrel ringed with glowing coils
+    const plasmaMat = new THREE.MeshStandardMaterial({ color: 0xC060FF, emissive: 0xB040FF, emissiveIntensity: 1.4 });
+    const plasma = new THREE.Group(); botGroup.add(plasma);
+    add(plasma, box(0.13, 0.17, 1.0), botDark, 0.05, 1.4, -0.7);          // body
+    add(plasma, box(0.1, 0.06, 0.7), botMetal, 0.05, 1.51, -0.65);        // top housing
+    add(plasma, box(0.08, 0.12, 0.18), plasmaMat, 0.05, 1.29, -0.45);     // energy cell
+    add(plasma, new THREE.CylinderGeometry(0.045, 0.05, 0.45, 12), botDark, 0.05, 1.42, -1.4, Math.PI / 2);
+    for (const z of [-1.25, -1.38, -1.51]) add(plasma, new THREE.TorusGeometry(0.07, 0.018, 8, 20), plasmaMat, 0.05, 1.42, z);
+    const tip = glowSprite(0xB040FF, 0.35); tip.position.set(0.05, 1.42, -1.66); plasma.add(tip);
     const light = new THREE.PointLight(0xFF4A50, 0.9, 6, 2); light.position.set(0, 1.4, -0.6); botGroup.add(light);
     botGroup.userData.legs = legs; botGroup.userData.arms = arms;
+    botGroup.userData.rifle = rifle; botGroup.userData.plasma = plasma; botGroup.userData.weaponLight = light;
   })();
   scene.add(botGroup);
 
@@ -692,7 +710,8 @@
   }
   const bullets = [];
   const bulletGeo = new THREE.SphereGeometry(0.11, 10, 8);
-  const bulletMat = new THREE.MeshBasicMaterial({ color: 0xFFB27A });
+  const bulletMats = {};
+  for (const k in WEAPONS) bulletMats[k] = new THREE.MeshBasicMaterial({ color: WEAPONS[k].core });
   function clearFx() {
     for (const p of particles) scene.remove(p.m); particles.length = 0;
     for (const t of tracers) scene.remove(t.m); tracers.length = 0;
@@ -729,6 +748,7 @@
   const sfx = {
     shot: () => { noise(0.14, 3200, 0.55); tone(190, 55, 0.12, 'triangle', 0.35); },
     enemy: (vol) => { tone(1100, 180, 0.16, 'square', 0.1 * vol); noise(0.08, 1800, 0.15 * vol); },
+    plasma: (vol) => { tone(1800, 320, 0.14, 'sawtooth', 0.07 * vol); tone(520, 140, 0.12, 'square', 0.05 * vol); },
     hit: () => tone(1500, 2100, 0.06, 'sine', 0.22),
     hurt: () => { noise(0.22, 600, 0.6); tone(130, 45, 0.22, 'sine', 0.5); },
     boom: () => { noise(0.9, 1100, 0.9); tone(95, 28, 0.8, 'sine', 0.6); },
@@ -862,6 +882,10 @@
   function setDifficulty(d) {
     if (!DIFFS[d]) d = 'medio';
     difficulty = d;
+    const isPlasma = weapon() === WEAPONS.plasma;
+    botGroup.userData.rifle.visible = !isPlasma;
+    botGroup.userData.plasma.visible = isPlasma;
+    botGroup.userData.weaponLight.color.setHex(isPlasma ? 0xB040FF : 0xFF4A50);
     diffRadios.forEach((r) => { r.checked = r.value === d; });
     $('diffNote').textContent = DIFFS[d].note;
   }
@@ -996,7 +1020,7 @@
     for (const o of OBST) rg.fillRect(o.x - o.w / 2, o.z - o.d / 2, o.w, o.d);
     rg.strokeStyle = 'rgba(228,123,76,.8)'; rg.lineWidth = 0.35; rg.strokeRect(-ARENA, -ARENA, ARENA * 2, ARENA * 2);
     if (bot.alive) { rg.fillStyle = bot.sees ? '#E0304A' : 'rgba(224,48,74,.55)'; rg.beginPath(); rg.arc(bot.pos.x, bot.pos.z, 1.3, 0, Math.PI * 2); rg.fill(); }
-    rg.fillStyle = '#FFB27A'; for (const bl of bullets) rg.fillRect(bl.g.position.x - 0.35, bl.g.position.z - 0.35, 0.7, 0.7);
+    for (const bl of bullets) { rg.fillStyle = bl.radar; rg.fillRect(bl.g.position.x - 0.35, bl.g.position.z - 0.35, 0.7, 0.7); }
     rg.setTransform(1, 0, 0, 1, 0, 0);
     rg.fillStyle = '#8FE3F0'; rg.beginPath(); rg.moveTo(c, c - 11); rg.lineTo(c + 8, c + 8); rg.lineTo(c, c + 3); rg.lineTo(c - 8, c + 8); rg.closePath(); rg.fill();
     rg.restore();
@@ -1007,12 +1031,15 @@
     clearFx();
     Object.assign(player, { hp: 100, alive: true, fireCd: 0.3, ammo: MAG, reload: 0, yaw: 0, turnHold: 0, recoil: 0 });
     player.pos.set(0, 0, 24); player.vel.set(0, 0, 0);
-    Object.assign(bot, { hp: 100, alive: true, fireCd: 1.6, sees: false, hunting: false, stuck: 0, reaction: 0, yaw: Math.PI, faceYaw: Math.PI, flash: 0 });
+    Object.assign(bot, { hp: 100, alive: true, fireCd: 1.6, sees: false, hunting: false, stuck: 0, reaction: 0, yaw: Math.PI, faceYaw: Math.PI, flash: 0, burstLeft: 0, burstT: 0 });
     bot.pos.set(0, 0, -24); bot.vel.set(0, 0, 0); pickWander();
     botGroup.visible = true; botGroup.scale.setScalar(1);
     hurt = 0; shake = 0;
     pips(); updateHud();
-    showBanner('RONDA ' + round + '<small>' + (round === 1 ? 'Encuentra a CENTINELA' : 'CENTINELA dispara con más precisión') + '</small>', 1600);
+    const sub = round === 1
+      ? (weapon() === WEAPONS.plasma ? 'CENTINELA lleva un fusil de plasma' : 'Encuentra a CENTINELA')
+      : 'CENTINELA dispara con más precisión';
+    showBanner('RONDA ' + round + '<small>' + sub + '</small>', round === 1 && weapon() === WEAPONS.plasma ? 2200 : 1600);
   }
   function startMatch() {
     initAudio(); goFullscreen();
@@ -1115,20 +1142,23 @@
   function botShoot(d) {
     bot.gunSide *= -1;
     const s = Math.sin(bot.yaw), c = Math.cos(bot.yaw);
-    const lx = 0.05, lz = -1.3;
+    const W = weapon();
+    const lx = 0.05, lz = W.muzzleZ;
     const origin = new V3(bot.pos.x + lx * c + lz * s, 1.42 + botGroup.position.y, bot.pos.z - lx * s + lz * c);
     const target = player.pos.clone().setY(1.2);
-    const speed = 24;
+    const speed = W.speed;
     const t = origin.distanceTo(target) / speed;
     target.addScaledVector(player.vel, t * d.lead);
     const dir = target.sub(origin).normalize();
     dir.x += rand(-1, 1) * d.spread; dir.y += rand(-0.5, 0.5) * d.spread; dir.z += rand(-1, 1) * d.spread; dir.normalize();
     const g = new THREE.Group();
-    g.add(new THREE.Mesh(bulletGeo, bulletMat)); g.add(glowSprite(0xFF7A3A, 0.9));
+    const core = new THREE.Mesh(bulletGeo, bulletMats[DIFFS[difficulty].weapon || 'rifle']);
+    core.scale.setScalar(W.size / 0.9);
+    g.add(core); g.add(glowSprite(W.glow, W.size));
     g.position.copy(origin); scene.add(g);
-    bullets.push({ g, v: dir.multiplyScalar(speed), life: 4 });
-    const dist = bot.pos.distanceTo(player.pos);
-    sfx.enemy(Math.max(0.25, 1 - dist / 60));
+    bullets.push({ g, v: dir.multiplyScalar(speed), life: 4, dmg: W.dmg || DIFFS[difficulty].dmg, radar: W.radar });
+    const vol = Math.max(0.25, 1 - bot.pos.distanceTo(player.pos) / 60);
+    if (W === WEAPONS.plasma) sfx.plasma(vol); else sfx.enemy(vol);
   }
   function damagePlayer(dmg, from) {
     if (!player.alive || state !== 'playing') return;
@@ -1190,10 +1220,17 @@
       bot.faceYaw = Math.atan2(-toP.x, -toP.z);
       bot.fireCd -= dt;
       if (bot.fireCd <= 0 && bot.reaction <= 0 && Math.abs(wrapAngle(bot.faceYaw - bot.yaw)) < 0.3 && state === 'playing') {
-        botShoot(d); bot.fireCd = d.fire * rand(0.75, 1.25);
+        const W = weapon();
+        bot.burstLeft = W.burst; bot.burstT = 0;
+        bot.fireCd = d.fire * W.cdMul * rand(0.75, 1.25);
+      }
+      if (bot.burstLeft > 0 && state === 'playing') {
+        bot.burstT -= dt;
+        if (bot.burstT <= 0) { botShoot(d); bot.burstLeft--; bot.burstT = weapon().gap; }
       }
     } else {
       bot.fireCd = Math.max(bot.fireCd, 0.35);
+      bot.burstLeft = 0;
       const tgt = bot.hunting ? bot.lastSeen : bot.wander;
       const to = new V3(tgt.x - bot.pos.x, 0, tgt.z - bot.pos.z);
       if (to.length() < 1.6) { if (bot.hunting) bot.hunting = false; pickWander(); }
@@ -1221,7 +1258,7 @@
         b.g.position.addScaledVector(step, 1 / 3);
         const p = b.g.position;
         const dx = p.x - player.pos.x, dz = p.z - player.pos.z;
-        if (player.alive && dx * dx + dz * dz < 0.5 * 0.5 && p.y > 0.1 && p.y < 1.85) { damagePlayer(DIFFS[difficulty].dmg); dead = true; }
+        if (player.alive && dx * dx + dz * dz < 0.5 * 0.5 && p.y > 0.1 && p.y < 1.85) { damagePlayer(b.dmg); dead = true; }
         else if (insideSolid(p)) { burst(p, 0xFFB27A, 5, 3, 0.3); dead = true; }
       }
       b.life -= dt;
