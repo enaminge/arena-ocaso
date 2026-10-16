@@ -26,8 +26,11 @@ Entra en la arena y enfréntate a CENTINELA, un jefe malvado con armadura de com
 CENTINELA patrulla la arena, te busca cuando te pierde de vista y mejora su puntería en cada ronda. Muévete entre los bloques de hormigón, esquiva sus disparos y gana 3 rondas para llevarte la victoria.
 
 • Duelo 1 contra 1 al mejor de 5 rondas
+• Tres niveles de dificultad: Fácil, Medio y Difícil
 • Enemigo con inteligencia artificial que se vuelve más difícil en cada ronda
+• Desafía a tus amigos: comparte tu resultado por WhatsApp y comprueba quién lo hace mejor
 • Controles táctiles simples: flechas para moverte y girar, y un botón para disparar
+• Compatible con mandos por USB o Bluetooth
 • Radar, barra de blindaje y cargador con recarga automática
 • Funciona sin internet después de la primera vez
 • Sin anuncios, sin compras dentro de la app y sin recopilar datos

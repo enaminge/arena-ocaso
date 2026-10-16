@@ -1,6 +1,6 @@
 // Offline support: the game shell and three.js are cached on install. Pages load
 // network-first so a new version on GitHub Pages reaches players the next time they are online.
-const CACHE = 'arena-ocaso-v1';
+const CACHE = 'arena-ocaso-v2';
 const CORE = [
   './',
   './index.html',

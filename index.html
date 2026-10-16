@@ -7,6 +7,8 @@
 <meta name="theme-color" content="#13111F">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Arena Ocaso">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -85,9 +87,40 @@
   .mute:focus-visible { outline: 2px solid var(--bone); outline-offset: 2px; }
 
   /* ---------- Overlay ---------- */
-  .overlay { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; z-index: 5; overflow-y: auto;
+  .overlay { position: fixed; inset: 0; display: grid; justify-items: center; padding: 16px; z-index: 5; overflow-y: auto; -webkit-overflow-scrolling: touch;
+             padding-block: calc(16px + env(safe-area-inset-top, 0px)) calc(16px + env(safe-area-inset-bottom, 0px));
              background: linear-gradient(180deg, rgba(19,17,31,.35) 0%, rgba(19,17,31,.82) 70%); }
-  .card { width: 100%; max-width: 540px; display: grid; gap: 18px; }
+  .card { width: 100%; max-width: 540px; display: grid; gap: 18px; margin-block: auto; }
+
+  /* Difficulty selector */
+  .diff { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 8px; }
+  .diff legend { padding: 0; margin-bottom: 8px; }
+  .seg { display: flex; flex-wrap: wrap; width: max-content; max-width: 100%; border: 1px solid rgba(243,234,215,.4); }
+  .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+  .seg label { padding: 10px 20px; font: 600 14px "Chakra Petch", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
+  .seg label:not(:first-of-type) { border-left: 1px solid rgba(243,234,215,.25); }
+  .seg input:checked + label { background: var(--dusk); color: var(--ink); }
+  .seg input:focus-visible + label { outline: 2px solid var(--bone); outline-offset: -4px; }
+  .seg input:disabled + label { cursor: not-allowed; }
+  .seg input:disabled:not(:checked) + label { opacity: .4; }
+  .diffnote { margin: 0; font-size: 13px; color: var(--muted); }
+
+  /* Challenge received / share */
+  .challenge { border: 1px solid rgba(228,123,76,.6); background: rgba(228,123,76,.1); padding: 12px 14px; display: grid; gap: 6px; }
+  .challenge .who { font-family: "Saira Stencil One", "Chakra Petch", sans-serif; font-size: 20px; letter-spacing: .04em; color: var(--bone); }
+  .challenge p { margin: 0; color: #DCD1BF; }
+  .challenge .install { justify-self: start; padding: 6px 12px; font-size: 11px; }
+  .verdict { margin: 0; font-size: 17px; color: var(--bone); font-weight: 600; }
+  .sharebox { display: grid; gap: 8px; }
+  .sharebox input { font: 15px "Chakra Petch", sans-serif; color: var(--bone); background: rgba(243,234,215,.06); border: 1px solid rgba(243,234,215,.4); padding: 9px 12px; width: 100%; max-width: 280px; box-sizing: border-box; -webkit-user-select: text; user-select: text; }
+  .sharebox input:focus-visible { outline: 2px solid var(--bone); outline-offset: 2px; }
+  .sharebox #shareUrl { max-width: 100%; font-size: 13px; }
+  .sharestatus { margin: 0; font-size: 13px; color: var(--tracer); min-height: 1.2em; }
+  a.install { text-decoration: none; display: inline-block; }
+  .padstatus { margin: 0; font-size: 13px; color: var(--muted); }
+  .padstatus.on { color: var(--tracer); }
+  body.touch-mode .padstatus:not(.on) { display: none; }
+  .ioshint { margin: 0; font-size: 13px; color: var(--muted); }
   .kicker { font-size: 12px; letter-spacing: .34em; color: var(--dusk); text-transform: uppercase; font-weight: 600; }
   h1 { margin: 0; font-family: "Saira Stencil One", "Chakra Petch", sans-serif; font-weight: 400; font-size: clamp(52px, 13vw, 104px); line-height: .88; letter-spacing: .01em; text-wrap: balance; }
   h1 span { color: var(--dusk); display: block; }
@@ -202,9 +235,24 @@
   <div class="overlay" id="overlay">
     <div class="card" id="card">
       <div class="kicker" id="kicker">Duelo 1 contra 1 · al mejor de 5 rondas</div>
+      <div class="challenge" id="challenge" hidden>
+        <div class="who" id="challengeWho"></div>
+        <p id="challengeText"></p>
+        <button class="install" id="noChallengeBtn" type="button">Jugar sin reto</button>
+      </div>
       <h1 id="title">Arena<span>Ocaso</span></h1>
       <p class="lede" id="lede">Te enfrentas a CENTINELA, un jefe malvado con armadura de combate que patrulla la arena, te busca cuando te pierde de vista y afina la puntería en cada ronda. Gana quien se lleve 3 rondas.</p>
       <p class="result" id="result" hidden></p>
+      <p class="verdict" id="verdict" hidden></p>
+      <fieldset class="diff" id="diffSet">
+        <legend class="label">Dificultad de CENTINELA</legend>
+        <div class="seg">
+          <input type="radio" name="diff" id="diff-facil" value="facil"><label for="diff-facil">Fácil</label>
+          <input type="radio" name="diff" id="diff-medio" value="medio" checked><label for="diff-medio">Medio</label>
+          <input type="radio" name="diff" id="diff-dificil" value="dificil"><label for="diff-dificil">Difícil</label>
+        </div>
+        <p class="diffnote" id="diffNote"></p>
+      </fieldset>
       <dl class="keys" id="keys">
         <dt><kbd>↑</kbd><kbd>↓</kbd></dt><dd>Avanzar y retroceder</dd>
         <dt><kbd>←</kbd><kbd>→</kbd></dt><dd>Girar (mantén pulsado para girar más rápido)</dd>
@@ -212,6 +260,18 @@
       </dl>
       <p class="extra" id="extra">Extra: <b>A</b> / <b>D</b> para moverte de lado · <b>M</b> para silenciar. Usa los bloques como cobertura.</p>
       <p class="touchhelp">Usa las flechas de la izquierda para avanzar, retroceder y girar (puedes deslizar el dedo entre ellas) y el botón FUEGO de la derecha para disparar. Recarga automática cada 12 tiros.</p>
+      <p class="padstatus" id="padStatus">Mando: conéctalo por USB o Bluetooth y pulsa cualquier botón.</p>
+      <p class="ioshint" id="iosHint" hidden>Para instalarlo en iPhone o iPad: toca Compartir y luego <b>Agregar a inicio</b>.</p>
+      <div class="sharebox" id="shareBox" hidden>
+        <label class="label" for="nick">Tu nombre en el reto (opcional)</label>
+        <input id="nick" type="text" maxlength="16" autocomplete="nickname" placeholder="Por ejemplo: Ana">
+        <div class="actions">
+          <button class="install" id="shareBtn" type="button">Desafiar a un amigo</button>
+          <a class="install" id="waLink" href="https://wa.me/" target="_blank" rel="noopener">Enviar por WhatsApp</a>
+        </div>
+        <input id="shareUrl" type="text" readonly hidden aria-label="Enlace del reto">
+        <p class="sharestatus" id="shareStatus" role="status"></p>
+      </div>
       <div class="actions">
         <button class="go" id="goBtn" type="button">Entrar a la arena ↵</button>
         <button class="install" id="installBtn" type="button" hidden>Instalar app</button>
@@ -258,13 +318,32 @@
     { x: 0,   z: 13,  w: 5,   d: 1.2, h: 1.1 },
     { x: 0,   z: -13, w: 5,   d: 1.2, h: 1.1 },
   ];
-  const diffFor = (r) => ({
-    spread: Math.max(0.018, 0.07 - (r - 1) * 0.012),
-    fire: Math.max(0.5, 1.05 - (r - 1) * 0.12),
-    speed: 4.6 + r * 0.45,
-    react: Math.max(0.2, 0.55 - (r - 1) * 0.08),
-    lead: Math.min(0.9, 0.3 + (r - 1) * 0.15),
-  });
+  // Difficulty scales CENTINELA's speed first, then reaction, aim, fire rate and damage.
+  const DIFFS = {
+    facil:   { name: 'Fácil',   speed: 0.72, fire: 1.4,  spread: 1.5, react: 1.6, dmg: 9,
+               note: 'CENTINELA se mueve y dispara más lento, y falla más.' },
+    medio:   { name: 'Medio',   speed: 1,    fire: 1,    spread: 1,   react: 1,   dmg: 12,
+               note: 'Velocidad y puntería normales.' },
+    dificil: { name: 'Difícil', speed: 1.38, fire: 0.72, spread: 0.6, react: 0.6, dmg: 15,
+               note: 'CENTINELA es mucho más rápido, reacciona antes, apunta mejor y pega más fuerte.' },
+  };
+  let difficulty = 'medio';
+  const diffFor = (r) => {
+    const P = DIFFS[difficulty];
+    return {
+      spread: Math.max(0.012, 0.07 - (r - 1) * 0.012) * P.spread,
+      fire: Math.max(0.45, 1.05 - (r - 1) * 0.12) * P.fire,
+      speed: (4.6 + r * 0.45) * P.speed,
+      react: Math.max(0.15, 0.55 - (r - 1) * 0.08) * P.react,
+      lead: Math.min(0.9, 0.3 + (r - 1) * 0.15),
+      turn: 7 * P.speed,
+    };
+  };
+  const fmtTime = (t) => Math.floor(t / 60) + ':' + String(Math.round(t % 60)).padStart(2, '0');
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  };
 
   // ================= Renderer / scene =================
   const canvas = $('view');
@@ -550,7 +629,7 @@
   const bot = { pos: new V3(0, 0, -24), vel: new V3(), yaw: Math.PI, faceYaw: Math.PI, hp: 100, alive: true, fireCd: 1.5, sees: false, losT: 0,
                 hunting: false, lastSeen: new V3(), wander: new V3(), strafeDir: 1, strafeT: 1, stuck: 0, reaction: 0, flash: 0, gunSide: 1 };
   let state = 'menu';           // menu | playing | roundEnd | matchEnd
-  let round = 1, score = { p: 0, b: 0 }, roundTimer = 0, shake = 0, hurt = 0, hitT = 0, time = 0;
+  let round = 1, score = { p: 0, b: 0 }, roundTimer = 0, shake = 0, hurt = 0, hitT = 0, time = 0, matchTime = 0;
 
   // ================= Collision helpers =================
   function resolve(p, r) {
@@ -665,13 +744,20 @@
   const keys = {};
   let firePressed = false;
   const KEYMAP = { ArrowUp: 'fwd', KeyW: 'fwd', ArrowDown: 'back', KeyS: 'back', ArrowLeft: 'left', ArrowRight: 'right', KeyA: 'sl', KeyD: 'sr', Space: 'fire' };
+  const inMenu = () => state === 'menu' || state === 'matchEnd';
+  // Text fields and radios in the menu keep their native keys (typing a name, arrowing between difficulties).
+  const isFormField = (t) => !!(t && t.closest && t.closest('input, textarea, select'));
   window.addEventListener('keydown', (e) => {
+    if (isFormField(e.target)) return;
     const a = KEYMAP[e.code];
-    if ((state === 'menu' || state === 'matchEnd') && (e.code === 'Enter' || e.code === 'Space') && !e.repeat) { e.preventDefault(); startMatch(); return; }
+    if (inMenu() && (e.code === 'Enter' || e.code === 'Space')) {
+      if (e.target && e.target.closest && e.target.closest('button, a')) return; // let the focused control activate
+      e.preventDefault(); if (!e.repeat) startMatch(); return;
+    }
     if (a) { e.preventDefault(); keys[a] = true; if (a === 'fire') firePressed = true; }
     if (e.code === 'KeyM' && !e.repeat) setMuted(!muted);
   });
-  window.addEventListener('keyup', (e) => { const a = KEYMAP[e.code]; if (a) { e.preventDefault(); keys[a] = false; } });
+  window.addEventListener('keyup', (e) => { if (isFormField(e.target)) return; const a = KEYMAP[e.code]; if (a) { e.preventDefault(); keys[a] = false; } });
   window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
   $('goBtn').addEventListener('click', startMatch);
   $('muteBtn').addEventListener('click', (e) => { setMuted(!muted); e.currentTarget.blur(); });
@@ -721,11 +807,139 @@
     if (!document.body.classList.contains('touch-mode')) return;
     if (matchMedia('(display-mode: fullscreen)').matches || document.fullscreenElement) return;
     const el = document.documentElement;
-    if (!el.requestFullscreen) return;
-    el.requestFullscreen({ navigationUI: 'hide' })
-      .then(() => (screen.orientation && screen.orientation.lock ? screen.orientation.lock('landscape') : null))
-      .catch(() => {});
+    if (el.requestFullscreen) {
+      el.requestFullscreen({ navigationUI: 'hide' })
+        .then(() => (screen.orientation && screen.orientation.lock ? screen.orientation.lock('landscape') : null))
+        .catch(() => {});
+    } else if (el.webkitRequestFullscreen) {
+      try { el.webkitRequestFullscreen(); } catch (err) {} // iPad Safari; iPhone has no fullscreen API
+    }
   }
+
+  // ---- Gamepad (PC, tablets): standard mapping — left stick moves, right stick turns, RT/RB/A fire, Start plays
+  const gpad = { connected: false, name: '', move: 0, strafe: 0, turn: 0, fire: false, prev: {}, ref: null };
+  const padStatus = $('padStatus');
+  function setPadStatus() {
+    padStatus.classList.toggle('on', gpad.connected);
+    padStatus.textContent = gpad.connected
+      ? 'Mando conectado: stick izquierdo para moverte, stick derecho para girar, gatillo derecho o A para disparar, Start para empezar.'
+      : 'Mando: conéctalo por USB o Bluetooth y pulsa cualquier botón.';
+  }
+  window.addEventListener('gamepadconnected', (e) => {
+    gpad.connected = true; gpad.name = e.gamepad.id; setPadStatus();
+    if (state === 'playing') showBanner('MANDO CONECTADO', 1200);
+  });
+  window.addEventListener('gamepaddisconnected', () => {
+    const any = navigator.getGamepads && [...navigator.getGamepads()].some((g) => g && g.connected);
+    if (!any) { gpad.connected = false; gpad.move = gpad.strafe = gpad.turn = 0; gpad.fire = false; gpad.ref = null; setPadStatus(); }
+  });
+  function pollGamepad() {
+    const list = navigator.getGamepads ? navigator.getGamepads() : [];
+    let gp = null;
+    for (const g of list) if (g && g.connected) { gp = g; break; }
+    gpad.ref = gp;
+    if (!gp) { gpad.move = gpad.strafe = gpad.turn = 0; gpad.fire = false; return; }
+    const DZ = 0.18;
+    const ax = (i) => { const v = gp.axes[i] || 0; return Math.abs(v) < DZ ? 0 : (v - Math.sign(v) * DZ) / (1 - DZ); };
+    const btn = (i) => !!(gp.buttons[i] && (gp.buttons[i].pressed || gp.buttons[i].value > 0.5));
+    const edge = (i) => { const now = btn(i), was = !!gpad.prev[i]; gpad.prev[i] = now; return now && !was; };
+    gpad.move = -ax(1) + (btn(12) ? 1 : 0) - (btn(13) ? 1 : 0);
+    gpad.strafe = ax(0);
+    gpad.turn = -ax(2) + (btn(14) ? 1 : 0) - (btn(15) ? 1 : 0);
+    gpad.fire = btn(7) || btn(5) || btn(0);
+    const startPressed = edge(9), aPressed = edge(0), selectPressed = edge(8);
+    if (inMenu() && (startPressed || aPressed)) startMatch();
+    if (selectPressed) setMuted(!muted);
+  }
+  function rumble(strength, ms) {
+    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+    const act = gpad.ref && gpad.ref.vibrationActuator;
+    if (act && act.playEffect) act.playEffect('dual-rumble', { duration: ms, strongMagnitude: strength, weakMagnitude: strength * 0.6 }).catch(() => {});
+  }
+
+  // ---- Difficulty selector
+  const diffRadios = [...document.querySelectorAll('input[name="diff"]')];
+  function setDifficulty(d) {
+    if (!DIFFS[d]) d = 'medio';
+    difficulty = d;
+    diffRadios.forEach((r) => { r.checked = r.value === d; });
+    $('diffNote').textContent = DIFFS[d].note;
+  }
+  diffRadios.forEach((r) => r.addEventListener('change', () => { if (r.checked) { setDifficulty(r.value); store.set('arena-diff', r.value); } }));
+
+  // ---- Challenge links: ?reto=1&d=<dificultad>&p=<rondas tuyas>&b=<rondas CENTINELA>&t=<segundos>&n=<nombre>
+  function parseChallenge() {
+    try {
+      const q = new URLSearchParams(location.search);
+      if (!q.has('reto')) return null;
+      const d = q.get('d'), p = +q.get('p'), b = +q.get('b'), t = +q.get('t');
+      if (!DIFFS[d] || !(p >= 0 && p <= WIN) || !(b >= 0 && b <= WIN) || (p !== WIN && b !== WIN) || p === b || !(t > 0 && t < 36000)) return null;
+      const n = (q.get('n') || '').replace(/[^\p{L}\p{N} ._-]/gu, '').trim().slice(0, 16);
+      return { d, p, b, t: Math.round(t), n: n || 'Tu amigo' };
+    } catch (e) { return null; }
+  }
+  const describe = (r) => (r.p > r.b ? 'Le ganó ' + r.p + '–' + r.b + ' a CENTINELA' : 'Perdió ' + r.p + '–' + r.b + ' contra CENTINELA') + ' en ' + DIFFS[r.d].name + ', en ' + fmtTime(r.t) + '.';
+  // Higher is better: a win beats a loss, then round margin, then a faster time.
+  const compareResults = (a, b) => ((a.p > a.b) - (b.p > b.b)) || ((a.p - a.b) - (b.p - b.b)) || (b.t - a.t);
+  let challenge = parseChallenge();
+  function renderChallenge() {
+    const box = $('challenge');
+    box.hidden = !challenge;
+    diffRadios.forEach((r) => { r.disabled = !!challenge; });
+    if (!challenge) return;
+    setDifficulty(challenge.d);
+    $('challengeWho').textContent = 'Reto de ' + challenge.n;
+    $('challengeText').textContent = describe(challenge) + ' ¿Puedes superarlo? Juegas en la misma dificultad.';
+  }
+  $('noChallengeBtn').addEventListener('click', () => {
+    challenge = null;
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    setDifficulty(store.get('arena-diff') || 'medio');
+    renderChallenge(); $('verdict').hidden = true;
+  });
+
+  // ---- Share a challenge with the result of the last match
+  let lastResult = null;
+  const nick = $('nick'), shareStatus = $('shareStatus'), shareUrl = $('shareUrl');
+  nick.value = store.get('arena-nick') || '';
+  function challengeLink() {
+    const u = new URL(location.href);
+    u.hash = '';
+    const q = new URLSearchParams({ reto: '1', d: lastResult.d, p: lastResult.p, b: lastResult.b, t: lastResult.t });
+    const n = nick.value.trim();
+    if (n) q.set('n', n);
+    u.search = q.toString();
+    return u.toString();
+  }
+  function challengeText() {
+    return lastResult.p > lastResult.b
+      ? 'Le gané ' + lastResult.p + '–' + lastResult.b + ' a CENTINELA en Arena Ocaso (' + DIFFS[lastResult.d].name + ', ' + fmtTime(lastResult.t) + '). ¿Me superas?'
+      : 'CENTINELA me ganó ' + lastResult.p + '–' + lastResult.b + ' en Arena Ocaso (' + DIFFS[lastResult.d].name + '). ¿Tú puedes hacerlo mejor?';
+  }
+  function refreshShare() {
+    if (!lastResult) return;
+    $('waLink').href = 'https://wa.me/?text=' + encodeURIComponent(challengeText() + ' ' + challengeLink());
+  }
+  nick.addEventListener('input', () => { store.set('arena-nick', nick.value.trim()); refreshShare(); shareStatus.textContent = ''; });
+  $('shareBtn').addEventListener('click', async () => {
+    if (!lastResult) return;
+    const url = challengeLink(), text = challengeText();
+    if (navigator.share) {
+      try { await navigator.share({ title: 'Arena Ocaso', text, url }); shareStatus.textContent = 'Reto listo para enviar.'; return; }
+      catch (err) { if (err && err.name === 'AbortError') return; }
+    }
+    shareUrl.value = url; shareUrl.hidden = false;
+    try { await navigator.clipboard.writeText(text + ' ' + url); shareStatus.textContent = 'Enlace copiado. Pégalo en un mensaje a tu amigo.'; }
+    catch (err) { shareUrl.focus(); shareUrl.select(); shareStatus.textContent = 'Copia este enlace y envíaselo a tu amigo.'; }
+  });
+
+  // ---- iPhone / iPad: no install prompt in Safari, so explain the manual step
+  const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const IS_STANDALONE = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches);
+  $('iosHint').hidden = !(IS_IOS && !IS_STANDALONE);
+
+  setDifficulty(store.get('arena-diff') || 'medio');
+  renderChallenge();
 
   // ---- Install as an app (Android Chrome offers this once the PWA criteria are met)
   let installPrompt = null;
@@ -748,7 +962,7 @@
   function pips() {
     const mk = (n) => Array.from({ length: WIN }, (_, i) => `<span class="pip${i < n ? ' on' : ''}"></span>`).join('');
     $('pips-p').innerHTML = mk(score.p); $('pips-b').innerHTML = mk(score.b);
-    $('roundLbl').textContent = 'RONDA ' + round;
+    $('roundLbl').textContent = 'RONDA ' + round + ' · ' + DIFFS[difficulty].name.toUpperCase();
   }
   let bannerTimer = null;
   function showBanner(html, ms) {
@@ -802,7 +1016,9 @@
   }
   function startMatch() {
     initAudio(); goFullscreen();
-    score = { p: 0, b: 0 }; round = 1;
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    score = { p: 0, b: 0 }; round = 1; matchTime = 0;
+    $('shareBox').hidden = true; $('verdict').hidden = true; shareStatus.textContent = ''; shareUrl.hidden = true;
     $('overlay').hidden = true; $('hud').hidden = false; gun.visible = true;
     for (const k in keys) keys[k] = false;
     resetRound(); state = 'playing';
@@ -822,10 +1038,25 @@
     state = 'matchEnd';
     const won = score.p > score.b;
     $('hud').hidden = true; gun.visible = false;
-    $('kicker').textContent = won ? 'Duelo terminado · has ganado' : 'Duelo terminado · has perdido';
+    lastResult = { d: difficulty, p: score.p, b: score.b, t: Math.max(1, Math.round(matchTime)) };
+    $('kicker').textContent = (won ? 'Duelo terminado · has ganado' : 'Duelo terminado · has perdido') + ' · ' + DIFFS[difficulty].name;
     $('title').innerHTML = won ? '<span>Victoria</span>' : '<span>Derrota</span>';
     $('lede').textContent = won ? 'Has derribado a CENTINELA. En la revancha vuelve a empezar desde la ronda 1.' : 'CENTINELA se queda con la arena. Muévete entre coberturas y no te quedes quieto en campo abierto.';
-    const res = $('result'); res.hidden = false; res.innerHTML = 'Marcador final &nbsp;<b>' + score.p + ' — ' + score.b + '</b>';
+    const res = $('result'); res.hidden = false;
+    res.innerHTML = 'Marcador final &nbsp;<b>' + score.p + ' — ' + score.b + '</b> &nbsp;·&nbsp; Tiempo <b>' + fmtTime(lastResult.t) + '</b>';
+    const verdict = $('verdict');
+    if (challenge) {
+      const c = compareResults(lastResult, challenge);
+      verdict.textContent = c > 0 ? 'Superaste el reto de ' + challenge.n + '.'
+        : c < 0 ? challenge.n + ' sigue adelante. Inténtalo otra vez.'
+        : 'Empate exacto con ' + challenge.n + '.';
+      verdict.hidden = false;
+      $('shareBtn').textContent = 'Devolver el desafío';
+    } else {
+      verdict.hidden = true;
+      $('shareBtn').textContent = 'Desafiar a un amigo';
+    }
+    $('shareBox').hidden = false; refreshShare();
     $('keys').hidden = true; $('extra').hidden = true;
     $('goBtn').textContent = 'Revancha ↵';
     $('overlay').hidden = false;
@@ -901,7 +1132,7 @@
   }
   function damagePlayer(dmg, from) {
     if (!player.alive || state !== 'playing') return;
-    player.hp -= dmg; hurt = Math.min(1.2, hurt + 0.7); shake = Math.max(shake, 0.12); sfx.hurt();
+    player.hp -= dmg; hurt = Math.min(1.2, hurt + 0.7); shake = Math.max(shake, 0.12); sfx.hurt(); rumble(0.7, 120);
     if (player.hp <= 0) { player.hp = 0; player.alive = false; endRound('b'); }
   }
 
@@ -910,12 +1141,16 @@
     const turn = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
     player.turnHold = turn ? Math.min(player.turnHold + dt, 0.35) : 0;
     const turnSpeed = 0.8 + 1.7 * (player.turnHold / 0.35);
-    player.yaw = wrapAngle(player.yaw + turn * turnSpeed * dt);
+    const padTurn = Math.sign(gpad.turn) * Math.pow(Math.min(1, Math.abs(gpad.turn)), 1.6) * 2.8; // finer aim near centre
+    player.yaw = wrapAngle(player.yaw + (turn * turnSpeed + padTurn) * dt);
 
-    const f = (keys.fwd ? 1 : 0) - (keys.back ? 1 : 0), st = (keys.sr ? 1 : 0) - (keys.sl ? 1 : 0);
+    const clamp1 = (v) => Math.max(-1, Math.min(1, v));
+    const f = clamp1((keys.fwd ? 1 : 0) - (keys.back ? 1 : 0) + gpad.move);
+    const st = clamp1((keys.sr ? 1 : 0) - (keys.sl ? 1 : 0) + gpad.strafe);
     const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
     const wish = new V3(-sy * f + cy * st, 0, -cy * f - sy * st);
-    if (wish.lengthSq() > 0) wish.normalize().multiplyScalar(f < 0 && !st ? 5 : 7);
+    const amount = Math.min(1, Math.hypot(f, st));
+    if (wish.lengthSq() > 0) wish.normalize().multiplyScalar((f < 0 && Math.abs(st) < 0.3 ? 5 : 7) * amount);
     player.vel.lerp(wish, Math.min(1, dt * 10));
     player.pos.addScaledVector(player.vel, dt);
     // keep away from bot
@@ -928,7 +1163,7 @@
 
     player.fireCd -= dt;
     if (player.reload > 0) { player.reload -= dt; if (player.reload <= 0) { player.ammo = MAG; sfx.click(); } }
-    if (keys.fire || firePressed) playerShoot();
+    if (keys.fire || firePressed || gpad.fire) playerShoot();
     firePressed = false;
   }
 
@@ -973,7 +1208,7 @@
     const moved = prev.distanceTo(bot.pos), want = bot.vel.length() * dt;
     if (want > 0.02 && moved < want * 0.35) bot.stuck += dt; else bot.stuck = Math.max(0, bot.stuck - dt);
     if (bot.stuck > 0.45) { bot.stuck = 0; bot.strafeDir *= -1; if (!bot.sees) { bot.hunting = false; pickWander(); } }
-    bot.yaw = wrapAngle(bot.yaw + wrapAngle(bot.faceYaw - bot.yaw) * Math.min(1, dt * 7));
+    bot.yaw = wrapAngle(bot.yaw + wrapAngle(bot.faceYaw - bot.yaw) * Math.min(1, dt * d.turn));
   }
 
   function updateBullets(dt) {
@@ -986,7 +1221,7 @@
         b.g.position.addScaledVector(step, 1 / 3);
         const p = b.g.position;
         const dx = p.x - player.pos.x, dz = p.z - player.pos.z;
-        if (player.alive && dx * dx + dz * dz < 0.5 * 0.5 && p.y > 0.1 && p.y < 1.85) { damagePlayer(12); dead = true; }
+        if (player.alive && dx * dx + dz * dz < 0.5 * 0.5 && p.y > 0.1 && p.y < 1.85) { damagePlayer(DIFFS[difficulty].dmg); dead = true; }
         else if (insideSolid(p)) { burst(p, 0xFFB27A, 5, 3, 0.3); dead = true; }
       }
       b.life -= dt;
@@ -1066,7 +1301,8 @@
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     resize();
-    if (state === 'playing') { updatePlayer(dt); updateBot(dt); }
+    pollGamepad();
+    if (state === 'playing') { matchTime += dt; updatePlayer(dt); updateBot(dt); }
     else if (state === 'menu' || state === 'matchEnd') { updateBot(dt); }
     else if (state === 'roundEnd') {
       updateBot(dt);
