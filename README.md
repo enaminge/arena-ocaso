@@ -12,7 +12,7 @@ En el menú eliges cómo de difícil es CENTINELA. La opción queda guardada par
 |---|---|---|---|
 | Fácil | 72 % | 1,4 × más lento | 9 |
 | Medio | 100 % | normal | 12 |
-| Difícil | 138 % | ráfagas de 3 tiros | 11 por tiro (33 por ráfaga) |
+| Difícil | 138 % | ráfagas de 3 tiros | 15 por tiro (45 por ráfaga) |
 
 En Difícil, además, CENTINELA lleva un **fusil de plasma**, mejor que tu arma: dispara ráfagas de 3 proyectiles violetas que viajan más rápido (34 m/s frente a 24 m/s), así que cuesta más esquivarlos. También reacciona antes y apunta mejor. En Fácil falla más. En todos los niveles mejora un poco con cada ronda.
 

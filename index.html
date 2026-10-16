@@ -330,7 +330,7 @@
   // CENTINELA's weapons. dmg null = use the difficulty's damage per hit.
   const WEAPONS = {
     rifle:  { speed: 24, burst: 1, gap: 0,    cdMul: 1,   dmg: null, muzzleZ: -1.3,  core: 0xFFB27A, glow: 0xFF7A3A, size: 0.9, radar: '#FFB27A' },
-    plasma: { speed: 34, burst: 3, gap: 0.09, cdMul: 1.7, dmg: 11,   muzzleZ: -1.66, core: 0xF4D6FF, glow: 0xB040FF, size: 1.3, radar: '#D08CFF' },
+    plasma: { speed: 34, burst: 3, gap: 0.09, cdMul: 1.7, dmg: 15,   muzzleZ: -1.66, core: 0xF4D6FF, glow: 0xB040FF, size: 1.3, radar: '#D08CFF' },
   };
   const weapon = () => WEAPONS[DIFFS[difficulty].weapon || 'rifle'];
   let difficulty = 'medio';
