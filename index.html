@@ -179,6 +179,11 @@
   .rotate p { margin: 0 0 18px; font-size: 18px; line-height: 1.4; }
   @keyframes tilt { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
   @media (orientation: portrait) { body.touch-mode:not(.allow-portrait) .rotate { display: grid; } }
+  @media (max-width: 900px) {
+    .score { font-size: 11px; gap: 6px; letter-spacing: .1em; }
+    .round { font-size: 14px; padding: 2px 8px; }
+    #radar { width: 110px; height: 110px; }
+  }
   @media (max-width: 520px) {
     #radar { width: 96px; height: 96px; top: calc(70px + env(safe-area-inset-top, 0px)); }
     .score { font-size: 11px; gap: 6px; letter-spacing: .1em; }
@@ -199,11 +204,11 @@
       <div class="score">
         <span class="you">TÚ</span><span class="pips" id="pips-p"></span>
         <span class="round" id="roundLbl">RONDA 1</span>
-        <span class="pips" id="pips-b"></span><span class="foe">CENTINELA</span>
+        <span class="pips" id="pips-b"></span><span class="foe" id="foeName">CENTINELA</span>
       </div>
       <div class="foebar" aria-label="Blindaje de CENTINELA"><div id="foeFill"></div></div>
     </div>
-    <button class="mute" id="muteBtn" type="button">SONIDO: SÍ</button>
+    <button class="mute" id="muteBtn" type="button" aria-label="Silenciar">SONIDO</button>
     <canvas id="radar" width="264" height="264" aria-label="Radar"></canvas>
     <div class="cross"></div>
     <div class="hitmark" id="hitmark"></div>
@@ -244,6 +249,14 @@
       <p class="lede" id="lede">Te enfrentas a CENTINELA, un jefe malvado con armadura de combate que patrulla la arena, te busca cuando te pierde de vista y afina la puntería en cada ronda. Gana quien se lleve 3 rondas.</p>
       <p class="result" id="result" hidden></p>
       <p class="verdict" id="verdict" hidden></p>
+      <fieldset class="diff" id="levelSet">
+        <legend class="label">Nivel</legend>
+        <div class="seg">
+          <input type="radio" name="level" id="level-1" value="1" checked><label for="level-1">1 · Centinela</label>
+          <input type="radio" name="level" id="level-2" value="2"><label for="level-2">2 · El pulpo</label>
+        </div>
+        <p class="diffnote" id="levelNote"></p>
+      </fieldset>
       <fieldset class="diff" id="diffSet">
         <legend class="label">Dificultad de CENTINELA</legend>
         <div class="seg">
@@ -273,6 +286,7 @@
         <p class="sharestatus" id="shareStatus" role="status"></p>
       </div>
       <div class="actions">
+        <button class="go" id="nextLevelBtn" type="button" hidden>Nivel 2: el pulpo ↵</button>
         <button class="go" id="goBtn" type="button">Entrar a la arena ↵</button>
         <button class="install" id="installBtn" type="button" hidden>Instalar app</button>
       </div>
@@ -302,7 +316,14 @@
   const ARENA = 30;             // half size
   const WIN = 3;
   const MAG = 12;
-  const PLAYER_R = 0.5, BOT_R = 0.75;
+  const PLAYER_R = 0.5;
+  // Level 1: CENTINELA as a humanoid. Level 2: CENTINELA transformed into a giant octopus with two guns.
+  const LEVELS = {
+    1: { foe: 'CENTINELA', the: 'CENTINELA', hp: 100, hitY: 1.45, hitR: 0.95, radius: 0.75, speedMul: 1 },
+    2: { foe: 'PULPO',     the: 'EL PULPO',  hp: 150, hitY: 1.85, hitR: 1.3,  radius: 1.15, speedMul: 0.9 },
+  };
+  let level = 1;
+  const lvl = () => LEVELS[level];
   const OBST = [
     { x: 0,   z: 0,   w: 6,   d: 6,   h: 3.4 },
     { x: -14, z: -12, w: 4,   d: 8,   h: 2.6 },
@@ -329,17 +350,28 @@
   };
   // CENTINELA's weapons. dmg null = use the difficulty's damage per hit.
   const WEAPONS = {
-    rifle:  { speed: 24, burst: 1, gap: 0,    cdMul: 1,   dmg: null, muzzleZ: -1.3,  core: 0xFFB27A, glow: 0xFF7A3A, size: 0.9, radar: '#FFB27A' },
-    plasma: { speed: 34, burst: 3, gap: 0.09, cdMul: 1.7, dmg: 15,   muzzleZ: -1.66, core: 0xF4D6FF, glow: 0xB040FF, size: 1.3, radar: '#D08CFF' },
+    rifle:  { speed: 24, burst: 1, gap: 0,    cdMul: 1,   dmg: null, muzzleZ: -1.3,  core: 0xFFB27A, glow: 0xFF7A3A, size: 0.9, radar: '#FFB27A', sound: 'enemy' },
+    plasma: { speed: 34, burst: 3, gap: 0.09, cdMul: 1.7, dmg: 15,   muzzleZ: -1.66, core: 0xF4D6FF, glow: 0xB040FF, size: 1.3, radar: '#D08CFF', sound: 'plasma' },
+    // Octopus (level 2): two guns, either alternating ('alt') or firing together ('both')
+    inkAlt:     { speed: 22, burst: 1, gap: 0,   cdMul: 0.55, dmg: 8,  dual: 'alt',  core: 0xC8FFF2, glow: 0x18C8A8, size: 1.1, radar: '#5FE3C8', sound: 'ink' },
+    inkDual:    { speed: 26, burst: 1, gap: 0,   cdMul: 1.05, dmg: 10, dual: 'both', core: 0xC8FFF2, glow: 0x18C8A8, size: 1.1, radar: '#5FE3C8', sound: 'ink' },
+    plasmaDual: { speed: 34, burst: 3, gap: 0.1, cdMul: 2.0,  dmg: 10, dual: 'both', core: 0xF4D6FF, glow: 0xB040FF, size: 1.3, radar: '#D08CFF', sound: 'plasma' },
   };
-  const weapon = () => WEAPONS[DIFFS[difficulty].weapon || 'rifle'];
+  const OCTO_WEAPON = { facil: 'inkAlt', medio: 'inkDual', dificil: 'plasmaDual' };
+  const OCTO_NOTES = {
+    facil: 'El pulpo dispara tinta alternando sus dos armas, despacio.',
+    medio: 'El pulpo dispara tinta con sus dos armas a la vez.',
+    dificil: 'El pulpo es rápido, apunta mejor y dispara ráfagas de plasma con sus dos armas a la vez.',
+  };
+  const weaponKey = () => (level === 2 ? OCTO_WEAPON[difficulty] : (DIFFS[difficulty].weapon || 'rifle'));
+  const weapon = () => WEAPONS[weaponKey()];
   let difficulty = 'medio';
   const diffFor = (r) => {
     const P = DIFFS[difficulty];
     return {
       spread: Math.max(0.012, 0.07 - (r - 1) * 0.012) * P.spread,
       fire: Math.max(0.45, 1.05 - (r - 1) * 0.12) * P.fire,
-      speed: (4.6 + r * 0.45) * P.speed,
+      speed: (4.6 + r * 0.45) * P.speed * LEVELS[level].speedMul,
       react: Math.max(0.15, 0.55 - (r - 1) * 0.08) * P.react,
       lead: Math.min(0.9, 0.3 + (r - 1) * 0.15),
       turn: 7 * P.speed,
@@ -620,6 +652,87 @@
   })();
   scene.add(botGroup);
 
+  // ---- Level 2: CENTINELA as a giant octopus. Keeps the eyepatch, the red eye and the officer cap.
+  const octoGroup = new THREE.Group();
+  const octoSkin = new THREE.MeshStandardMaterial({
+    roughness: 0.55, metalness: 0.05, emissive: 0x000000,
+    map: canvasTex(256, (g, sz) => {
+      g.fillStyle = '#6E2547'; g.fillRect(0, 0, sz, sz);
+      for (let i = 0; i < 80; i++) {
+        g.fillStyle = Math.random() < 0.6 ? 'rgba(200,95,140,.5)' : 'rgba(35,8,28,.45)';
+        g.beginPath(); g.arc(Math.random() * sz, Math.random() * sz, 3 + Math.random() * 13, 0, Math.PI * 2); g.fill();
+      }
+    }),
+  });
+  const octoGlow = new THREE.MeshStandardMaterial({ color: 0x18C8A8, emissive: 0x18C8A8, emissiveIntensity: 1.3 });
+  (function buildOcto() {
+    const UPV = new V3(0, 1, 0);
+    const add = (parent, geo, mat, x, y, z, rx, ry, rz) => {
+      const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0);
+      m.castShadow = true; parent.add(m); return m;
+    };
+    const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    const limb = (a, b, r1, r2) => {
+      const dir = b.clone().sub(a), len = dir.length();
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r2, r1, len, 10), octoSkin);
+      m.position.copy(a).addScaledVector(dir, 0.5); m.quaternion.setFromUnitVectors(UPV, dir.normalize());
+      m.castShadow = true; octoGroup.add(m);
+    };
+    // Mantle (head) and lower body
+    const mantle = add(octoGroup, new THREE.SphereGeometry(0.95, 28, 20), octoSkin, 0, 2.15, 0.1);
+    mantle.scale.set(1, 1.25, 1.05);
+    add(octoGroup, new THREE.SphereGeometry(0.75, 24, 16), octoSkin, 0, 1.42, 0).scale.set(1.05, 0.6, 1.05);
+    // Eyes: one glowing red eye, one under the eyepatch, furious brows
+    const eyeWhite = new THREE.MeshStandardMaterial({ color: 0xF2E6C8, roughness: 0.3 });
+    const iris = new THREE.MeshStandardMaterial({ color: 0xFF3040, emissive: 0xFF2030, emissiveIntensity: 1.3 });
+    add(octoGroup, new THREE.SphereGeometry(0.21, 16, 12), eyeWhite, 0.4, 1.8, -0.7);
+    add(octoGroup, new THREE.SphereGeometry(0.11, 12, 10), iris, 0.42, 1.8, -0.88);
+    add(octoGroup, box(0.15, 0.035, 0.02), botDark, 0.42, 1.8, -0.98);
+    add(octoGroup, new THREE.CylinderGeometry(0.24, 0.24, 0.06, 20), botDark, -0.4, 1.82, -0.78, Math.PI / 2);
+    add(octoGroup, new THREE.TorusGeometry(0.99, 0.025, 6, 40), botDark, 0, 1.92, 0.1, Math.PI / 2 + 0.15, 0, 0);
+    add(octoGroup, box(0.36, 0.08, 0.1), botDark, 0.42, 2.08, -0.8, 0, 0, 0.35);
+    add(octoGroup, box(0.36, 0.08, 0.1), botDark, -0.42, 2.08, -0.82, 0, 0, -0.35);
+    // Officer cap
+    add(octoGroup, new THREE.CylinderGeometry(0.5, 0.56, 0.26, 24), botDark, 0, 3.3, 0.1);
+    add(octoGroup, new THREE.CylinderGeometry(0.6, 0.6, 0.06, 24), botDark, 0, 3.45, 0.1);
+    add(octoGroup, box(0.6, 0.03, 0.26), botDark, 0, 3.2, -0.48, 0.25);
+    add(octoGroup, box(0.13, 0.13, 0.03), botRed, 0, 3.32, -0.45);
+    // Six wavy tentacles around the body; joints are chained pivots so the whole limb curls
+    const tentacles = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i + 0.5) * Math.PI * 2 / 6;
+      const root = new THREE.Group();
+      root.position.set(Math.sin(a) * 0.55, 1.3, Math.cos(a) * 0.55);
+      root.rotation.order = 'YXZ'; root.rotation.y = a;
+      octoGroup.add(root);
+      const joints = []; let parent = root;
+      const SEG = 0.24, N = 7;
+      for (let k = 0; k < N; k++) {
+        const j = new THREE.Group(); j.position.y = k === 0 ? 0 : -SEG; parent.add(j);
+        const r0 = 0.16 * (1 - k / (N + 1)), r1 = 0.16 * (1 - (k + 1) / (N + 1));
+        const seg = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, SEG, 8), octoSkin);
+        seg.position.y = -SEG / 2; seg.castShadow = true; j.add(seg);
+        joints.push(j); parent = j;
+      }
+      tentacles.push({ joints, phase: i * 1.1 });
+    }
+    // Two gun-holding tentacles with one gun each
+    for (const sx of [-1, 1]) {
+      const shoulder = new V3(sx * 0.55, 1.5, -0.35), elbow = new V3(sx * 1.05, 1.25, -0.55), hand = new V3(sx * 1.05, 1.36, -0.95);
+      limb(shoulder, elbow, 0.15, 0.12); limb(elbow, hand, 0.12, 0.09);
+      add(octoGroup, box(0.15, 0.17, 0.75), botDark, sx * 1.05, 1.38, -1.2);
+      add(octoGroup, new THREE.CylinderGeometry(0.05, 0.05, 0.35, 10), botDark, sx * 1.05, 1.4, -1.72, Math.PI / 2);
+      add(octoGroup, new THREE.TorusGeometry(0.075, 0.02, 8, 18), octoGlow, sx * 1.05, 1.4, -1.6);
+      add(octoGroup, new THREE.TorusGeometry(0.075, 0.02, 8, 18), octoGlow, sx * 1.05, 1.4, -1.74);
+      add(octoGroup, new THREE.CylinderGeometry(0.09, 0.09, 0.12, 14), octoGlow, sx * 1.05, 1.26, -1.05, 0, 0, Math.PI / 2);
+    }
+    const light = new THREE.PointLight(0x18C8A8, 1.0, 7, 2); light.position.set(0, 1.4, -1.2); octoGroup.add(light);
+    octoGroup.userData = { tentacles, mantle, light };
+  })();
+  octoGroup.visible = false;
+  scene.add(octoGroup);
+  const foeGroup = () => (level === 2 ? octoGroup : botGroup);
+
   // ================= Player gun =================
   const gun = new THREE.Group();
   (function buildGun() {
@@ -748,6 +861,7 @@
   const sfx = {
     shot: () => { noise(0.14, 3200, 0.55); tone(190, 55, 0.12, 'triangle', 0.35); },
     enemy: (vol) => { tone(1100, 180, 0.16, 'square', 0.1 * vol); noise(0.08, 1800, 0.15 * vol); },
+    ink: (vol) => { tone(340, 90, 0.2, 'sine', 0.24 * vol); noise(0.12, 700, 0.18 * vol); },
     plasma: (vol) => { tone(1800, 320, 0.14, 'sawtooth', 0.07 * vol); tone(520, 140, 0.12, 'square', 0.05 * vol); },
     hit: () => tone(1500, 2100, 0.06, 'sine', 0.22),
     hurt: () => { noise(0.22, 600, 0.6); tone(130, 45, 0.22, 'sine', 0.5); },
@@ -756,7 +870,7 @@
     ding: () => { tone(660, 660, 0.18, 'triangle', 0.18); setTimeout(() => tone(990, 990, 0.3, 'triangle', 0.18), 140); },
   };
   function setMuted(m) {
-    muted = m; $('muteBtn').textContent = muted ? 'SONIDO: NO' : 'SONIDO: SÍ';
+    muted = m; $('muteBtn').textContent = muted ? 'MUDO' : 'SONIDO'; $('muteBtn').setAttribute('aria-label', muted ? 'Activar sonido' : 'Silenciar');
     if (master) master.gain.value = muted ? 0 : 0.45;
   }
 
@@ -879,16 +993,40 @@
 
   // ---- Difficulty selector
   const diffRadios = [...document.querySelectorAll('input[name="diff"]')];
+  // Shows the right foe model and weapon look for the current level + difficulty
+  function applyLoadout() {
+    const key = weaponKey(), W = WEAPONS[key];
+    botGroup.visible = level === 1 && bot.alive;
+    octoGroup.visible = level === 2 && bot.alive;
+    botGroup.userData.rifle.visible = key !== 'plasma';
+    botGroup.userData.plasma.visible = key === 'plasma';
+    botGroup.userData.weaponLight.color.setHex(key === 'plasma' ? 0xB040FF : 0xFF4A50);
+    octoGlow.color.setHex(W.glow); octoGlow.emissive.setHex(W.glow); octoGroup.userData.light.color.setHex(W.glow);
+    $('foeName').textContent = lvl().foe;
+  }
   function setDifficulty(d) {
     if (!DIFFS[d]) d = 'medio';
     difficulty = d;
-    const isPlasma = weapon() === WEAPONS.plasma;
-    botGroup.userData.rifle.visible = !isPlasma;
-    botGroup.userData.plasma.visible = isPlasma;
-    botGroup.userData.weaponLight.color.setHex(isPlasma ? 0xB040FF : 0xFF4A50);
     diffRadios.forEach((r) => { r.checked = r.value === d; });
-    $('diffNote').textContent = DIFFS[d].note;
+    $('diffNote').textContent = level === 2 ? OCTO_NOTES[d] : DIFFS[d].note;
+    applyLoadout();
   }
+
+  // ---- Level selector: level 2 unlocks only after winning every round of level 1 (3–0)
+  const levelRadios = [...document.querySelectorAll('input[name="level"]')];
+  const level2Unlocked = () => store.get('arena-l2') === '1';
+  function syncLevelLock() {
+    levelRadios.forEach((r) => { r.disabled = !!challenge || (r.value === '2' && !level2Unlocked()); });
+  }
+  function setLevel(l) {
+    level = l === 2 ? 2 : 1;
+    levelRadios.forEach((r) => { r.checked = +r.value === level; });
+    $('levelNote').textContent = level === 2
+      ? 'CENTINELA se transforma en un pulpo gigante con 150 de blindaje que dispara con dos armas.'
+      : (level2Unlocked() ? 'CENTINELA en su forma humana.' : 'Para desbloquear el nivel 2 (el pulpo) gana el nivel 1 sin perder ninguna ronda: 3–0.');
+    setDifficulty(difficulty);
+  }
+  levelRadios.forEach((r) => r.addEventListener('change', () => { if (r.checked) { setLevel(+r.value); store.set('arena-level', r.value); } }));
   diffRadios.forEach((r) => r.addEventListener('change', () => { if (r.checked) { setDifficulty(r.value); store.set('arena-diff', r.value); } }));
 
   // ---- Challenge links: ?reto=1&d=<dificultad>&p=<rondas tuyas>&b=<rondas CENTINELA>&t=<segundos>&n=<nombre>
@@ -896,13 +1034,15 @@
     try {
       const q = new URLSearchParams(location.search);
       if (!q.has('reto')) return null;
-      const d = q.get('d'), p = +q.get('p'), b = +q.get('b'), t = +q.get('t');
-      if (!DIFFS[d] || !(p >= 0 && p <= WIN) || !(b >= 0 && b <= WIN) || (p !== WIN && b !== WIN) || p === b || !(t > 0 && t < 36000)) return null;
+      const d = q.get('d'), p = +q.get('p'), b = +q.get('b'), t = +q.get('t'), l = +(q.get('l') || 1);
+      if ((l !== 1 && l !== 2) || !DIFFS[d] || !(p >= 0 && p <= WIN) || !(b >= 0 && b <= WIN) || (p !== WIN && b !== WIN) || p === b || !(t > 0 && t < 36000)) return null;
       const n = (q.get('n') || '').replace(/[^\p{L}\p{N} ._-]/gu, '').trim().slice(0, 16);
-      return { d, p, b, t: Math.round(t), n: n || 'Tu amigo' };
+      return { d, l, p, b, t: Math.round(t), n: n || 'Tu amigo' };
     } catch (e) { return null; }
   }
-  const describe = (r) => (r.p > r.b ? 'Le ganó ' + r.p + '–' + r.b + ' a CENTINELA' : 'Perdió ' + r.p + '–' + r.b + ' contra CENTINELA') + ' en ' + DIFFS[r.d].name + ', en ' + fmtTime(r.t) + '.';
+  const foeOf = (l) => (l === 2 ? 'el pulpo' : 'CENTINELA');
+  const describe = (r) => (r.p > r.b ? 'Le ganó ' + r.p + '–' + r.b + ' a ' + foeOf(r.l) : 'Perdió ' + r.p + '–' + r.b + ' contra ' + foeOf(r.l))
+    + ' en ' + DIFFS[r.d].name + (r.l === 2 ? ' (nivel 2)' : '') + ', en ' + fmtTime(r.t) + '.';
   // Higher is better: a win beats a loss, then round margin, then a faster time.
   const compareResults = (a, b) => ((a.p > a.b) - (b.p > b.b)) || ((a.p - a.b) - (b.p - b.b)) || (b.t - a.t);
   let challenge = parseChallenge();
@@ -910,14 +1050,17 @@
     const box = $('challenge');
     box.hidden = !challenge;
     diffRadios.forEach((r) => { r.disabled = !!challenge; });
+    syncLevelLock();
     if (!challenge) return;
+    setLevel(challenge.l);
     setDifficulty(challenge.d);
     $('challengeWho').textContent = 'Reto de ' + challenge.n;
-    $('challengeText').textContent = describe(challenge) + ' ¿Puedes superarlo? Juegas en la misma dificultad.';
+    $('challengeText').textContent = describe(challenge) + ' ¿Puedes superarlo? Juegas en el mismo nivel y dificultad.';
   }
   $('noChallengeBtn').addEventListener('click', () => {
     challenge = null;
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    setLevel(level2Unlocked() && store.get('arena-level') === '2' ? 2 : 1);
     setDifficulty(store.get('arena-diff') || 'medio');
     renderChallenge(); $('verdict').hidden = true;
   });
@@ -929,16 +1072,17 @@
   function challengeLink() {
     const u = new URL(location.href);
     u.hash = '';
-    const q = new URLSearchParams({ reto: '1', d: lastResult.d, p: lastResult.p, b: lastResult.b, t: lastResult.t });
+    const q = new URLSearchParams({ reto: '1', l: lastResult.l, d: lastResult.d, p: lastResult.p, b: lastResult.b, t: lastResult.t });
     const n = nick.value.trim();
     if (n) q.set('n', n);
     u.search = q.toString();
     return u.toString();
   }
   function challengeText() {
-    return lastResult.p > lastResult.b
-      ? 'Le gané ' + lastResult.p + '–' + lastResult.b + ' a CENTINELA en Arena Ocaso (' + DIFFS[lastResult.d].name + ', ' + fmtTime(lastResult.t) + '). ¿Me superas?'
-      : 'CENTINELA me ganó ' + lastResult.p + '–' + lastResult.b + ' en Arena Ocaso (' + DIFFS[lastResult.d].name + '). ¿Tú puedes hacerlo mejor?';
+    const r = lastResult, where = DIFFS[r.d].name + (r.l === 2 ? ', nivel 2' : '');
+    return r.p > r.b
+      ? 'Le gané ' + r.p + '–' + r.b + ' a ' + foeOf(r.l) + ' en Arena Ocaso (' + where + ', ' + fmtTime(r.t) + '). ¿Me superas?'
+      : (r.l === 2 ? 'El pulpo' : 'CENTINELA') + ' me ganó ' + r.p + '–' + r.b + ' en Arena Ocaso (' + where + '). ¿Tú puedes hacerlo mejor?';
   }
   function refreshShare() {
     if (!lastResult) return;
@@ -962,8 +1106,10 @@
   const IS_STANDALONE = navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches);
   $('iosHint').hidden = !(IS_IOS && !IS_STANDALONE);
 
-  setDifficulty(store.get('arena-diff') || 'medio');
+  difficulty = DIFFS[store.get('arena-diff')] ? store.get('arena-diff') : 'medio';
+  setLevel(level2Unlocked() && store.get('arena-level') === '2' ? 2 : 1);
   renderChallenge();
+  $('nextLevelBtn').addEventListener('click', () => { setLevel(2); store.set('arena-level', '2'); startMatch(); });
 
   // ---- Install as an app (Android Chrome offers this once the PWA criteria are met)
   let installPrompt = null;
@@ -986,7 +1132,7 @@
   function pips() {
     const mk = (n) => Array.from({ length: WIN }, (_, i) => `<span class="pip${i < n ? ' on' : ''}"></span>`).join('');
     $('pips-p').innerHTML = mk(score.p); $('pips-b').innerHTML = mk(score.b);
-    $('roundLbl').textContent = 'RONDA ' + round + ' · ' + DIFFS[difficulty].name.toUpperCase();
+    $('roundLbl').textContent = (level === 2 ? 'N2 · ' : '') + 'RONDA ' + round + ' · ' + DIFFS[difficulty].name.toUpperCase();
   }
   let bannerTimer = null;
   function showBanner(html, ms) {
@@ -996,7 +1142,7 @@
   function updateHud() {
     const hp = Math.max(0, Math.ceil(player.hp));
     hpNum.textContent = hp; hpFill.style.width = hp + '%'; hpFill.classList.toggle('low', hp <= 30);
-    foeFill.style.width = Math.max(0, bot.hp) + '%';
+    foeFill.style.width = Math.max(0, bot.hp / lvl().hp * 100) + '%';
     ammoNum.innerHTML = (player.reload > 0 ? 0 : player.ammo) + '<small> / ' + MAG + '</small>';
     ammoState.textContent = player.reload > 0 ? 'RECARGANDO…' : '';
     hitmark.classList.toggle('show', hitT > 0);
@@ -1031,21 +1177,22 @@
     clearFx();
     Object.assign(player, { hp: 100, alive: true, fireCd: 0.3, ammo: MAG, reload: 0, yaw: 0, turnHold: 0, recoil: 0 });
     player.pos.set(0, 0, 24); player.vel.set(0, 0, 0);
-    Object.assign(bot, { hp: 100, alive: true, fireCd: 1.6, sees: false, hunting: false, stuck: 0, reaction: 0, yaw: Math.PI, faceYaw: Math.PI, flash: 0, burstLeft: 0, burstT: 0 });
+    Object.assign(bot, { hp: lvl().hp, alive: true, fireCd: 1.6, sees: false, hunting: false, stuck: 0, reaction: 0, yaw: Math.PI, faceYaw: Math.PI, flash: 0, burstLeft: 0, burstT: 0 });
     bot.pos.set(0, 0, -24); bot.vel.set(0, 0, 0); pickWander();
-    botGroup.visible = true; botGroup.scale.setScalar(1);
+    applyLoadout();
     hurt = 0; shake = 0;
     pips(); updateHud();
     const sub = round === 1
-      ? (weapon() === WEAPONS.plasma ? 'CENTINELA lleva un fusil de plasma' : 'Encuentra a CENTINELA')
-      : 'CENTINELA dispara con más precisión';
-    showBanner('RONDA ' + round + '<small>' + sub + '</small>', round === 1 && weapon() === WEAPONS.plasma ? 2200 : 1600);
+      ? (level === 2 ? 'CENTINELA se transforma en pulpo · dispara con dos armas'
+        : weapon() === WEAPONS.plasma ? 'CENTINELA lleva un fusil de plasma' : 'Encuentra a CENTINELA')
+      : lvl().the + ' dispara con más precisión';
+    showBanner('RONDA ' + round + '<small>' + sub + '</small>', round === 1 && (level === 2 || weapon() === WEAPONS.plasma) ? 2400 : 1600);
   }
   function startMatch() {
     initAudio(); goFullscreen();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     score = { p: 0, b: 0 }; round = 1; matchTime = 0;
-    $('shareBox').hidden = true; $('verdict').hidden = true; shareStatus.textContent = ''; shareUrl.hidden = true;
+    $('shareBox').hidden = true; $('verdict').hidden = true; $('nextLevelBtn').hidden = true; shareStatus.textContent = ''; shareUrl.hidden = true;
     $('overlay').hidden = true; $('hud').hidden = false; gun.visible = true;
     for (const k in keys) keys[k] = false;
     resetRound(); state = 'playing';
@@ -1055,9 +1202,9 @@
     score[winner]++; state = 'roundEnd'; roundTimer = 2.6; pips();
     if (score[winner] >= WIN) {
       roundTimer = 2.2;
-      showBanner(winner === 'p' ? 'CENTINELA DERRIBADO<small>Última ronda ganada</small>' : 'HAS CAÍDO<small>Última ronda perdida</small>', 2100);
+      showBanner(winner === 'p' ? lvl().foe + ' DERRIBADO<small>Última ronda ganada</small>' : 'HAS CAÍDO<small>Última ronda perdida</small>', 2100);
     } else {
-      showBanner(winner === 'p' ? 'RONDA PARA TI<small>' + score.p + ' — ' + score.b + '</small>' : 'RONDA PARA CENTINELA<small>' + score.p + ' — ' + score.b + '</small>', 2300);
+      showBanner(winner === 'p' ? 'RONDA PARA TI<small>' + score.p + ' — ' + score.b + '</small>' : 'RONDA PARA ' + lvl().the + '<small>' + score.p + ' — ' + score.b + '</small>', 2300);
     }
     if (winner === 'p') sfx.ding();
   }
@@ -1065,10 +1212,22 @@
     state = 'matchEnd';
     const won = score.p > score.b;
     $('hud').hidden = true; gun.visible = false;
-    lastResult = { d: difficulty, p: score.p, b: score.b, t: Math.max(1, Math.round(matchTime)) };
-    $('kicker').textContent = (won ? 'Duelo terminado · has ganado' : 'Duelo terminado · has perdido') + ' · ' + DIFFS[difficulty].name;
+    lastResult = { d: difficulty, l: level, p: score.p, b: score.b, t: Math.max(1, Math.round(matchTime)) };
+    $('kicker').textContent = (won ? 'Duelo terminado · has ganado' : 'Duelo terminado · has perdido') + ' · Nivel ' + level + ' · ' + DIFFS[difficulty].name;
     $('title').innerHTML = won ? '<span>Victoria</span>' : '<span>Derrota</span>';
-    $('lede').textContent = won ? 'Has derribado a CENTINELA. En la revancha vuelve a empezar desde la ronda 1.' : 'CENTINELA se queda con la arena. Muévete entre coberturas y no te quedes quieto en campo abierto.';
+    const perfect = won && score.b === 0;
+    const newlyUnlocked = perfect && level === 1 && !level2Unlocked();
+    if (perfect && level === 1) store.set('arena-l2', '1');
+    $('lede').textContent = won
+      ? (level === 2 ? 'Has derrotado al pulpo. CENTINELA no se esperaba esto.'
+        : newlyUnlocked ? 'Ganaste las 3 rondas sin perder ninguna. Nivel 2 desbloqueado: CENTINELA se transforma en un pulpo gigante con dos armas.'
+        : perfect ? 'Ganaste las 3 rondas sin perder ninguna. Puedes pasar al nivel 2 o pedir la revancha.'
+        : level2Unlocked() ? 'Has derribado a CENTINELA. Gana 3–0 para pasar directo al nivel 2, o elígelo en el menú.'
+        : 'Has derribado a CENTINELA, pero perdiste alguna ronda. Para desbloquear el nivel 2 tienes que ganar 3–0.')
+      : (level === 2 ? 'El pulpo se queda con la arena. Sus dos armas cubren mucho espacio: muévete de lado y usa los bloques altos.'
+        : 'CENTINELA se queda con la arena. Muévete entre coberturas y no te quedes quieto en campo abierto.');
+    $('nextLevelBtn').hidden = !(perfect && level === 1 && !challenge);
+    syncLevelLock(); setLevel(level);
     const res = $('result'); res.hidden = false;
     res.innerHTML = 'Marcador final &nbsp;<b>' + score.p + ' — ' + score.b + '</b> &nbsp;·&nbsp; Tiempo <b>' + fmtTime(lastResult.t) + '</b>';
     const verdict = $('verdict');
@@ -1099,13 +1258,14 @@
   function startReload() { if (player.reload <= 0) { player.reload = 1.3; sfx.click(); } }
   function botHitAlongRay(ray, maxDist) {
     if (!bot.alive) return null;
-    const c = new V3(bot.pos.x, 1.45 + botGroup.position.y, bot.pos.z);
+    const L = lvl();
+    const c = new V3(bot.pos.x, L.hitY + foeGroup().position.y, bot.pos.z);
     const t = c.clone().sub(ray.origin).dot(ray.direction);
     if (!(t > 0 && t < maxDist)) return null;
     const closest = ray.origin.clone().addScaledVector(ray.direction, t);
     const off = closest.clone().sub(c);
-    if (!(off.length() <= HIT_R + t * HIT_R_PER_M)) return null;
-    return c.add(off.clampLength(0, 0.6));
+    if (!(off.length() <= L.hitR + t * HIT_R_PER_M)) return null;
+    return c.add(off.clampLength(0, L.hitR * 0.6));
   }
   function playerShoot() {
     if (player.reload > 0 || player.fireCd > 0) return;
@@ -1133,32 +1293,38 @@
     if (!bot.sees) { bot.hunting = true; bot.lastSeen.copy(player.pos); }
     if (bot.hp <= 0) {
       bot.alive = false; bot.hp = 0; sfx.boom();
-      const c = bot.pos.clone().setY(1.4);
-      burst(c, 0xE0304A, 30, 9, 1.0); burst(c, 0xFFB27A, 24, 7, 0.9); burst(c, 0x2B2934, 20, 6, 1.2);
-      botGroup.visible = false; shake = 0.25;
+      const c = bot.pos.clone().setY(level === 2 ? 1.9 : 1.4);
+      if (level === 2) { burst(c, 0x6E2547, 40, 10, 1.2); burst(c, 0x18C8A8, 24, 8, 0.9); burst(c, 0x101018, 26, 7, 1.3); }
+      else { burst(c, 0xE0304A, 30, 9, 1.0); burst(c, 0xFFB27A, 24, 7, 0.9); burst(c, 0x2B2934, 20, 6, 1.2); }
+      foeGroup().visible = false; shake = 0.25;
       endRound('p');
     }
   }
   function botShoot(d) {
     bot.gunSide *= -1;
     const s = Math.sin(bot.yaw), c = Math.cos(bot.yaw);
-    const W = weapon();
-    const lx = 0.05, lz = W.muzzleZ;
-    const origin = new V3(bot.pos.x + lx * c + lz * s, 1.42 + botGroup.position.y, bot.pos.z - lx * s + lz * c);
-    const target = player.pos.clone().setY(1.2);
-    const speed = W.speed;
-    const t = origin.distanceTo(target) / speed;
-    target.addScaledVector(player.vel, t * d.lead);
-    const dir = target.sub(origin).normalize();
-    dir.x += rand(-1, 1) * d.spread; dir.y += rand(-0.5, 0.5) * d.spread; dir.z += rand(-1, 1) * d.spread; dir.normalize();
-    const g = new THREE.Group();
-    const core = new THREE.Mesh(bulletGeo, bulletMats[DIFFS[difficulty].weapon || 'rifle']);
-    core.scale.setScalar(W.size / 0.9);
-    g.add(core); g.add(glowSprite(W.glow, W.size));
-    g.position.copy(origin); scene.add(g);
-    bullets.push({ g, v: dir.multiplyScalar(speed), life: 4, dmg: W.dmg || DIFFS[difficulty].dmg, radar: W.radar });
+    const key = weaponKey(), W = WEAPONS[key];
+    // Muzzles in the foe's local space (x right, z forward = -z)
+    const muzzles = level === 2
+      ? (W.dual === 'both' ? [[-1.05, 1.4, -1.9], [1.05, 1.4, -1.9]] : [[1.05 * bot.gunSide, 1.4, -1.9]])
+      : [[0.05, 1.42, W.muzzleZ]];
+    const lift = foeGroup().position.y;
+    for (const [lx, ly, lz] of muzzles) {
+      const origin = new V3(bot.pos.x + lx * c + lz * s, ly + lift, bot.pos.z - lx * s + lz * c);
+      const target = player.pos.clone().setY(1.2);
+      const t = origin.distanceTo(target) / W.speed;
+      target.addScaledVector(player.vel, t * d.lead);
+      const dir = target.sub(origin).normalize();
+      dir.x += rand(-1, 1) * d.spread; dir.y += rand(-0.5, 0.5) * d.spread; dir.z += rand(-1, 1) * d.spread; dir.normalize();
+      const g = new THREE.Group();
+      const core = new THREE.Mesh(bulletGeo, bulletMats[key]);
+      core.scale.setScalar(W.size / 0.9);
+      g.add(core); g.add(glowSprite(W.glow, W.size));
+      g.position.copy(origin); scene.add(g);
+      bullets.push({ g, v: dir.multiplyScalar(W.speed), life: 4, dmg: W.dmg || DIFFS[difficulty].dmg, radar: W.radar });
+    }
     const vol = Math.max(0.25, 1 - bot.pos.distanceTo(player.pos) / 60);
-    if (W === WEAPONS.plasma) sfx.plasma(vol); else sfx.enemy(vol);
+    sfx[W.sound](vol);
   }
   function damagePlayer(dmg, from) {
     if (!player.alive || state !== 'playing') return;
@@ -1185,7 +1351,7 @@
     player.pos.addScaledVector(player.vel, dt);
     // keep away from bot
     if (bot.alive) {
-      const dx = player.pos.x - bot.pos.x, dz = player.pos.z - bot.pos.z, dd = Math.hypot(dx, dz), min = PLAYER_R + BOT_R;
+      const dx = player.pos.x - bot.pos.x, dz = player.pos.z - bot.pos.z, dd = Math.hypot(dx, dz), min = PLAYER_R + lvl().radius;
       if (dd < min && dd > 1e-4) { player.pos.x = bot.pos.x + dx / dd * min; player.pos.z = bot.pos.z + dz / dd * min; }
     }
     resolve(player.pos, PLAYER_R);
@@ -1241,7 +1407,7 @@
     bot.vel.lerp(mv, Math.min(1, dt * 5));
     const prev = bot.pos.clone();
     bot.pos.addScaledVector(bot.vel, dt);
-    resolve(bot.pos, BOT_R);
+    resolve(bot.pos, lvl().radius);
     const moved = prev.distanceTo(bot.pos), want = bot.vel.length() * dt;
     if (want > 0.02 && moved < want * 0.35) bot.stuck += dt; else bot.stuck = Math.max(0, bot.stuck - dt);
     if (bot.stuck > 0.45) { bot.stuck = 0; bot.strafeDir *= -1; if (!bot.sees) { bot.hunting = false; pickWander(); } }
@@ -1286,6 +1452,20 @@
   let walkPhase = 0;
   function applyBotVisual(dt) {
     const spd = bot.vel.length();
+    if (level === 2) {
+      // Octopus: hovers, breathes and ripples its tentacles faster when moving
+      const amp = 0.12 + 0.18 * Math.min(1, spd / 4);
+      octoGroup.position.set(bot.pos.x, 0.14 + Math.sin(time * 1.8) * 0.08, bot.pos.z);
+      octoGroup.rotation.y = bot.yaw;
+      octoGroup.userData.mantle.scale.y = 1.25 + Math.sin(time * 2.2) * 0.03;
+      for (const tn of octoGroup.userData.tentacles) {
+        tn.joints.forEach((j, k) => { j.rotation.x = (k === 0 ? -1.0 : 0.22) + Math.sin(time * (2.2 + spd * 0.5) + k * 0.7 + tn.phase) * amp; });
+      }
+      bot.flash -= 1 / 60;
+      octoSkin.emissive.setHex(bot.flash > 0 ? 0xFF5A6A : 0x000000);
+      octoSkin.emissiveIntensity = bot.flash > 0 ? 0.9 : 0;
+      return;
+    }
     walkPhase += spd * dt * 2.2;
     const swing = Math.sin(walkPhase) * Math.min(1, spd / 4) * 0.6;
     const [lLeg, rLeg] = botGroup.userData.legs, [lArm, rArm] = botGroup.userData.arms;

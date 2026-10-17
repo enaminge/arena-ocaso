@@ -4,6 +4,19 @@ Juego de disparos en primera persona en 3D que corre en el navegador. Te enfrent
 
 Se juega en https://enaminge.github.io/arena-ocaso/ desde PC, tablet, Android o iPhone.
 
+## Niveles
+
+- **Nivel 1 · Centinela**: CENTINELA en su forma humana, con 100 de blindaje.
+- **Nivel 2 · El pulpo**: CENTINELA se transforma en un pulpo gigante con 150 de blindaje, seis tentáculos y **dos armas**, una en cada tentáculo delantero. Es más grande (más fácil de acertar) pero cubre mucho más espacio con sus disparos.
+
+El nivel 2 **solo se desbloquea ganando el nivel 1 sin perder ninguna ronda (3–0)**, en cualquier dificultad. Una vez desbloqueado queda disponible en el menú.
+
+| Dificultad | Cómo dispara el pulpo | Velocidad del proyectil | Daño por impacto |
+|---|---|---|---|
+| Fácil | tinta, alternando las dos armas | 22 | 8 |
+| Medio | tinta, con las dos armas a la vez | 26 | 10 |
+| Difícil | ráfagas de plasma de 3 tiros con las dos armas a la vez (6 proyectiles) | 34 | 10 |
+
 ## Dificultad
 
 En el menú eliges cómo de difícil es CENTINELA. La opción queda guardada para la próxima vez.
@@ -34,7 +47,7 @@ En Difícil, además, CENTINELA lleva un **fusil de plasma**, mejor que tu arma:
 
 ## Desafiar a un amigo
 
-Al terminar una partida toca **Desafiar a un amigo** (o **Enviar por WhatsApp**). Se comparte un enlace con tu marcador, tu tiempo y la dificultad. Tu amigo lo abre, juega en la misma dificultad y al final ve si te superó: gana quien venció a CENTINELA, luego quien le sacó más diferencia de rondas y, si empatan, quien lo hizo en menos tiempo. Desde ahí puede devolverte el desafío.
+Al terminar una partida toca **Desafiar a un amigo** (o **Enviar por WhatsApp**). Se comparte un enlace con tu marcador, tu tiempo, el nivel y la dificultad. Tu amigo lo abre, juega en el mismo nivel y dificultad y al final ve si te superó: gana quien venció a CENTINELA, luego quien le sacó más diferencia de rondas y, si empatan, quien lo hizo en menos tiempo. Desde ahí puede devolverte el desafío.
 
 No hace falta cuenta ni servidor: todo el reto viaja dentro del enlace.
 
