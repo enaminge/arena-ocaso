@@ -1,14 +1,15 @@
 // Offline support: the game shell and three.js are cached on install. Pages load
 // network-first so a new version on GitHub Pages reaches players the next time they are online.
-const CACHE = 'arena-ocaso-v2';
+// three.js is self-hosted (vendor/) so there is no third-party CDN in the runtime.
+const CACHE = 'arena-ocaso-v3';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './vendor/three-r128.min.js',
   './icons/icon-192.png',
   './icons/icon-512.png',
   './icons/apple-touch-icon.png',
-  'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',
 ];
 
 self.addEventListener('install', (e) => {
@@ -40,7 +41,11 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // three.js and Google Fonts: cache-first, filled on first online visit
+  // Google Fonts only: cache-first, filled on first online visit. Any other
+  // cross-origin request is passed straight through and never cached, so a
+  // response from an unexpected host can't be stored and replayed later.
+  const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+  if (!FONT_HOSTS.includes(url.hostname)) return;
   e.respondWith(
     caches.match(req).then((cached) => cached || fetch(req).then((res) => {
       if (res.ok || res.type === 'opaque') { const copy = res.clone(); caches.open(CACHE).then((c) => c.put(req, copy)); }

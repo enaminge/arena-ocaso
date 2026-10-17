@@ -314,11 +314,10 @@
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
+  if (!window.THREE) { $('lede').textContent = 'No se pudo cargar el motor 3D. Revisa tu conexión y recarga la página.'; return; }
   const V3 = THREE.Vector3;
   const rand = (a, b) => a + Math.random() * (b - a);
   const wrapAngle = (a) => { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; };
-
-  if (!window.THREE) { $('lede').textContent = 'No se pudo cargar el motor 3D. Revisa tu conexión y recarga la página.'; return; }
 
   // ================= Config =================
   const ARENA = 30;             // half size
