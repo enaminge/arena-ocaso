@@ -5,6 +5,7 @@ const CACHE = 'arena-ocaso-v3';
 const CORE = [
   './',
   './index.html',
+  './game.js',
   './manifest.webmanifest',
   './vendor/three-r128.min.js',
   './icons/icon-192.png',
