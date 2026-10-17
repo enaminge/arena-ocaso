@@ -39,7 +39,8 @@
   .label { font-size: 11px; letter-spacing: .24em; color: var(--muted); text-transform: uppercase; }
 
   .top { position: absolute; left: 50%; top: calc(14px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
-         display: grid; justify-items: center; gap: 8px; width: min(440px, calc(100% - 32px)); }
+         display: grid; justify-items: center; gap: 8px; width: min(520px, calc(100% - 300px)); }
+  .score > * { white-space: nowrap; }
   .score { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 13px; letter-spacing: .18em; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
   .score .you { color: var(--tracer); }
   .score .foe { color: var(--enemy); }
@@ -79,6 +80,9 @@
   .banner.show { opacity: 1; }
   .banner small { display: block; font-family: "Chakra Petch", sans-serif; font-size: 14px; letter-spacing: .3em; color: var(--dusk); margin-top: 6px; }
 
+  .webbed { position: fixed; inset: 0; pointer-events: none; z-index: 2; background-size: cover; background-position: center; background-repeat: no-repeat; }
+  .webtxt { position: absolute; left: 0; right: 0; top: 58%; text-align: center; font: 700 14px "Chakra Petch", sans-serif; letter-spacing: .25em; color: var(--bone); text-shadow: 0 2px 8px rgba(0,0,0,.85); padding-inline: 16px; }
+  .webtxt b { display: block; font-family: "Saira Stencil One", "Chakra Petch", sans-serif; font-weight: 400; font-size: 40px; letter-spacing: .04em; margin-top: 4px; }
   #vignette { position: fixed; inset: 0; pointer-events: none; opacity: 0;
               background: radial-gradient(ellipse at center, rgba(224,48,74,0) 45%, rgba(224,48,74,.55) 100%); }
 
@@ -183,9 +187,11 @@
     .score { font-size: 11px; gap: 6px; letter-spacing: .1em; }
     .round { font-size: 14px; padding: 2px 8px; }
     #radar { width: 110px; height: 110px; }
+    .top { width: calc(100% - 270px); }
   }
   @media (max-width: 520px) {
     #radar { width: 96px; height: 96px; top: calc(70px + env(safe-area-inset-top, 0px)); }
+    .top { width: calc(100% - 32px); }
     .score { font-size: 11px; gap: 6px; letter-spacing: .1em; }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -226,6 +232,7 @@
   </div>
 
   <div id="vignette"></div>
+  <div class="webbed" id="webbed" hidden><div class="webtxt">ATRAPADO EN LA TELARAÑA <b id="webTime">5,0 s</b></div></div>
 
   <div class="touch" id="touch">
     <div class="pad">
@@ -254,6 +261,7 @@
         <div class="seg">
           <input type="radio" name="level" id="level-1" value="1" checked><label for="level-1">1 · Centinela</label>
           <input type="radio" name="level" id="level-2" value="2"><label for="level-2">2 · El pulpo</label>
+          <input type="radio" name="level" id="level-3" value="3"><label for="level-3">3 · Pulpo y araña</label>
         </div>
         <p class="diffnote" id="levelNote"></p>
       </fieldset>
@@ -302,7 +310,7 @@
   </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="vendor/three-r128.min.js"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -317,11 +325,19 @@
   const WIN = 3;
   const MAG = 12;
   const PLAYER_R = 0.5;
-  // Level 1: CENTINELA as a humanoid. Level 2: CENTINELA transformed into a giant octopus with two guns.
-  const LEVELS = {
-    1: { foe: 'CENTINELA', the: 'CENTINELA', hp: 100, hitY: 1.45, hitR: 0.95, radius: 0.75, speedMul: 1 },
-    2: { foe: 'PULPO',     the: 'EL PULPO',  hp: 150, hitY: 1.85, hitR: 1.3,  radius: 1.15, speedMul: 0.9 },
+  // Foe kinds. CENTINELA's forms: humanoid, giant octopus and spider.
+  const KINDS = {
+    human:  { name: 'CENTINELA', hp: 100, hitY: 1.45, hitR: 0.95, radius: 0.75, speedMul: 1,    dot: '#E0304A' },
+    octo:   { name: 'PULPO',     hp: 150, hitY: 1.85, hitR: 1.3,  radius: 1.15, speedMul: 0.9,  dot: '#FF6FB0' },
+    spider: { name: 'ARAÑA',     hp: 110, hitY: 1.25, hitR: 1.15, radius: 1.1,  speedMul: 1.15, dot: '#9CFF3A' },
   };
+  // Level 3 fights two foes at once, so each one gets a little less armour.
+  const LEVELS = {
+    1: { foes: ['human'],          hpMul: 1,   label: 'CENTINELA', the: 'CENTINELA',           down: 'CENTINELA DERRIBADO' },
+    2: { foes: ['octo'],           hpMul: 1,   label: 'PULPO',     the: 'EL PULPO',            down: 'PULPO DERRIBADO' },
+    3: { foes: ['octo', 'spider'], hpMul: 0.8, label: 'PULPO · ARAÑA', the: 'EL PULPO Y LA ARAÑA', down: 'PULPO Y ARAÑA DERRIBADOS' },
+  };
+  const MAX_LEVEL = 3;
   let level = 1;
   const lvl = () => LEVELS[level];
   const OBST = [
@@ -356,6 +372,18 @@
     inkAlt:     { speed: 22, burst: 1, gap: 0,   cdMul: 0.55, dmg: 8,  dual: 'alt',  core: 0xC8FFF2, glow: 0x18C8A8, size: 1.1, radar: '#5FE3C8', sound: 'ink' },
     inkDual:    { speed: 26, burst: 1, gap: 0,   cdMul: 1.05, dmg: 10, dual: 'both', core: 0xC8FFF2, glow: 0x18C8A8, size: 1.1, radar: '#5FE3C8', sound: 'ink' },
     plasmaDual: { speed: 34, burst: 3, gap: 0.1, cdMul: 2.0,  dmg: 10, dual: 'both', core: 0xF4D6FF, glow: 0xB040FF, size: 1.3, radar: '#D08CFF', sound: 'plasma' },
+    // Spider (level 3): venom cannon
+    venom:      { speed: 24, burst: 1, gap: 0,    cdMul: 1.1, dmg: 8, core: 0xE8FFC8, glow: 0x6AD010, size: 1.0, radar: '#9CFF3A', sound: 'venom' },
+    venomBurst: { speed: 32, burst: 2, gap: 0.12, cdMul: 1.5, dmg: 9, core: 0xE8FFC8, glow: 0x6AD010, size: 1.0, radar: '#9CFF3A', sound: 'venom' },
+  };
+  const SPIDER_WEAPON = { facil: 'venom', medio: 'venom', dificil: 'venomBurst' };
+  // Spider web: seconds between throws and projectile speed; a hit freezes the player
+  const WEB = { facil: { cd: 12, speed: 16 }, medio: { cd: 9, speed: 18 }, dificil: { cd: 7, speed: 21 } };
+  const FREEZE_S = 5;
+  const L3_NOTES = {
+    facil: 'La araña dispara veneno despacio y lanza una telaraña cada 12 s aprox. El pulpo alterna sus dos armas de tinta.',
+    medio: 'La araña lanza una telaraña cada 9 s aprox. El pulpo dispara tinta con sus dos armas a la vez.',
+    dificil: 'La araña dispara ráfagas de veneno y lanza una telaraña cada 7 s aprox. El pulpo dispara ráfagas de plasma con sus dos armas.',
   };
   const OCTO_WEAPON = { facil: 'inkAlt', medio: 'inkDual', dificil: 'plasmaDual' };
   const OCTO_NOTES = {
@@ -363,7 +391,8 @@
     medio: 'El pulpo dispara tinta con sus dos armas a la vez.',
     dificil: 'El pulpo es rápido, apunta mejor y dispara ráfagas de plasma con sus dos armas a la vez.',
   };
-  const weaponKey = () => (level === 2 ? OCTO_WEAPON[difficulty] : (DIFFS[difficulty].weapon || 'rifle'));
+  const weaponKeyFor = (kind) => (kind === 'octo' ? OCTO_WEAPON[difficulty] : kind === 'spider' ? SPIDER_WEAPON[difficulty] : (DIFFS[difficulty].weapon || 'rifle'));
+  const weaponKey = () => weaponKeyFor(lvl().foes[0]);
   const weapon = () => WEAPONS[weaponKey()];
   let difficulty = 'medio';
   const diffFor = (r) => {
@@ -371,7 +400,7 @@
     return {
       spread: Math.max(0.012, 0.07 - (r - 1) * 0.012) * P.spread,
       fire: Math.max(0.45, 1.05 - (r - 1) * 0.12) * P.fire,
-      speed: (4.6 + r * 0.45) * P.speed * LEVELS[level].speedMul,
+      speed: (4.6 + r * 0.45) * P.speed,
       react: Math.max(0.15, 0.55 - (r - 1) * 0.08) * P.react,
       lead: Math.min(0.9, 0.3 + (r - 1) * 0.15),
       turn: 7 * P.speed,
@@ -731,7 +760,84 @@
   })();
   octoGroup.visible = false;
   scene.add(octoGroup);
-  const foeGroup = () => (level === 2 ? octoGroup : botGroup);
+  // ---- Level 3: CENTINELA as a spider. Venom cannon on its back, cap and eyepatch kept.
+  const LIMB_UP = new V3(0, 1, 0);
+  function setLimb(m, a, b) {
+    const dir = b.clone().sub(a), len = dir.length();
+    m.position.copy(a).addScaledVector(dir, 0.5); m.scale.set(1, len, 1);
+    m.quaternion.setFromUnitVectors(LIMB_UP, dir.divideScalar(len));
+  }
+  const spiderGroup = new THREE.Group();
+  const spiderSkin = new THREE.MeshStandardMaterial({
+    roughness: 0.45, metalness: 0.1, emissive: 0x000000,
+    map: canvasTex(256, (g, sz) => {
+      g.fillStyle = '#1C1420'; g.fillRect(0, 0, sz, sz);
+      g.strokeStyle = 'rgba(120,200,40,.35)'; g.lineWidth = 6;
+      for (let i = 0; i < 6; i++) { const y = i * sz / 6 + 20; g.beginPath(); g.moveTo(0, y); g.bezierCurveTo(sz * 0.3, y - 20, sz * 0.7, y + 20, sz, y); g.stroke(); }
+      g.fillStyle = 'rgba(255,255,255,.06)';
+      for (let i = 0; i < 600; i++) g.fillRect(Math.random() * sz, Math.random() * sz, 2, 2);
+    }),
+  });
+  const spiderGlow = new THREE.MeshStandardMaterial({ color: 0x6AD010, emissive: 0x6AD010, emissiveIntensity: 1.3 });
+  (function buildSpider() {
+    const add = (geo, mat, x, y, z, rx, ry, rz) => {
+      const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0);
+      m.castShadow = true; spiderGroup.add(m); return m;
+    };
+    const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    // Abdomen with the red hourglass, cephalothorax in front (front = -z)
+    add(new THREE.SphereGeometry(0.72, 24, 18), spiderSkin, 0, 1.35, 0.75).scale.set(1, 0.85, 1.25);
+    add(new THREE.ConeGeometry(0.16, 0.22, 4), botRed, 0, 1.97, 0.58, Math.PI / 2);
+    add(new THREE.ConeGeometry(0.16, 0.22, 4), botRed, 0, 1.97, 0.82, -Math.PI / 2);
+    add(new THREE.SphereGeometry(0.5, 22, 16), spiderSkin, 0, 1.15, -0.35).scale.set(1, 0.75, 1.1);
+    // Eyes: one big glowing eye, the other under the eyepatch, four small ones above
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xFF2030, emissive: 0xFF1020, emissiveIntensity: 1.5 });
+    add(new THREE.SphereGeometry(0.085, 12, 10), eyeMat, 0.13, 1.27, -0.86);
+    add(new THREE.CylinderGeometry(0.11, 0.11, 0.03, 16), botDark, -0.13, 1.27, -0.88, Math.PI / 2);
+    for (const x of [-0.25, -0.09, 0.09, 0.25]) add(new THREE.SphereGeometry(0.045, 10, 8), eyeMat, x, 1.38, -0.76);
+    for (const sx of [-1, 1]) add(new THREE.ConeGeometry(0.05, 0.22, 8), botDark, sx * 0.1, 0.86, -0.72, Math.PI);
+    // Officer cap
+    add(new THREE.CylinderGeometry(0.26, 0.3, 0.16, 20), botDark, 0, 1.58, -0.3);
+    add(box(0.34, 0.025, 0.16), botDark, 0, 1.5, -0.6, 0.25);
+    add(box(0.08, 0.08, 0.02), botRed, 0, 1.6, -0.57);
+    // Venom cannon on the right shoulder
+    add(box(0.1, 0.12, 0.1), botDark, 0.32, 1.45, -0.4);
+    add(box(0.13, 0.15, 0.7), botDark, 0.32, 1.55, -0.6);
+    add(new THREE.CylinderGeometry(0.045, 0.045, 0.3, 10), botDark, 0.32, 1.56, -1.03, Math.PI / 2);
+    add(new THREE.TorusGeometry(0.07, 0.018, 8, 18), spiderGlow, 0.32, 1.56, -0.95);
+    add(new THREE.TorusGeometry(0.07, 0.018, 8, 18), spiderGlow, 0.32, 1.56, -1.08);
+    // Eight legs: two segments each, re-posed every frame by poseSpider()
+    const legs = [];
+    const seg = (r1, r2) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r2, r1, 1, 8), spiderSkin); m.castShadow = true; spiderGroup.add(m); return m; };
+    [-0.5, -0.2, 0.1, 0.4].forEach((z, i) => {
+      for (const sx of [-1, 1]) legs.push({ sx, z, upper: seg(0.07, 0.055), lower: seg(0.055, 0.025), phase: i * 1.3 + (sx > 0 ? Math.PI : 0) });
+    });
+    const light = new THREE.PointLight(0x6AD010, 0.9, 6, 2); light.position.set(0.3, 1.5, -1.0); spiderGroup.add(light);
+    spiderGroup.userData = { legs };
+  })();
+  function poseSpider(walk, amp) {
+    for (const L of spiderGroup.userData.legs) {
+      const ph = walk + L.phase, lift = Math.max(0, Math.cos(ph));
+      const hip = new V3(L.sx * 0.35, 1.1, L.z - 0.1);
+      const knee = new V3(L.sx * 1.0, 1.65 + lift * 0.15 * amp, L.z * 1.4 + Math.sin(ph) * 0.14 * amp);
+      const foot = new V3(L.sx * 1.55, lift * 0.18 * amp, L.z * 1.9 + Math.sin(ph) * 0.28 * amp);
+      setLimb(L.upper, hip, knee); setLimb(L.lower, knee, foot);
+    }
+  }
+  poseSpider(0, 0);
+  spiderGroup.visible = false;
+  scene.add(spiderGroup);
+  const GROUPS = { human: botGroup, octo: octoGroup, spider: spiderGroup };
+  const webTex = canvasTex(128, (g, sz) => {
+    const c = sz / 2;
+    g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 2;
+    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; g.beginPath(); g.moveTo(c, c); g.lineTo(c + Math.cos(a) * c * 0.95, c + Math.sin(a) * c * 0.95); g.stroke(); }
+    for (let r = 10; r < c; r += 11) {
+      g.beginPath();
+      for (let i = 0; i <= 8; i++) { const a = i * Math.PI / 4, x = c + Math.cos(a) * r, y = c + Math.sin(a) * r; if (i) g.lineTo(x, y); else g.moveTo(x, y); }
+      g.stroke();
+    }
+  });
 
   // ================= Player gun =================
   const gun = new THREE.Group();
@@ -757,8 +863,12 @@
 
   // ================= State =================
   const player = { pos: new V3(0, 0, 24), vel: new V3(), yaw: 0, hp: 100, alive: true, fireCd: 0, ammo: MAG, reload: 0, turnHold: 0, bob: 0, recoil: 0 };
-  const bot = { pos: new V3(0, 0, -24), vel: new V3(), yaw: Math.PI, faceYaw: Math.PI, hp: 100, alive: true, fireCd: 1.5, sees: false, losT: 0,
-                hunting: false, lastSeen: new V3(), wander: new V3(), strafeDir: 1, strafeT: 1, stuck: 0, reaction: 0, flash: 0, gunSide: 1 };
+  function makeFoe(kind) {
+    return { kind, pos: new V3(), vel: new V3(), yaw: Math.PI, faceYaw: Math.PI, hp: 100, maxHp: 100, alive: true, fireCd: 1.5, sees: false, losT: 0,
+             hunting: false, lastSeen: new V3(), wander: new V3(), strafeDir: 1, strafeT: 1, stuck: 0, reaction: 0, flash: 0, gunSide: 1,
+             burstLeft: 0, burstT: 0, webCd: 4, walk: 0 };
+  }
+  let foes = [makeFoe('human')];
   let state = 'menu';           // menu | playing | roundEnd | matchEnd
   let round = 1, score = { p: 0, b: 0 }, roundTimer = 0, shake = 0, hurt = 0, hitT = 0, time = 0, matchTime = 0;
 
@@ -786,18 +896,33 @@
     return false;
   }
   const losRay = new THREE.Raycaster();
-  function hasLOS() {
-    const a = new V3(bot.pos.x, 1.6, bot.pos.z), b = new V3(player.pos.x, 1.5, player.pos.z);
+  function hasLOS(f) {
+    const a = new V3(f.pos.x, 1.6, f.pos.z), b = new V3(player.pos.x, 1.5, player.pos.z);
     const dir = b.clone().sub(a); const len = dir.length(); dir.divideScalar(len);
     losRay.set(a, dir); losRay.far = len;
     return losRay.intersectObjects(coverMeshes, false).length === 0;
   }
-  function pickWander() {
+  function pickWander(f) {
     for (let i = 0; i < 20; i++) {
       const p = new V3(rand(-26, 26), 0, rand(-26, 26)); const q = p.clone(); resolve(q, 1.2);
-      if (q.distanceTo(p) < 0.01 && p.distanceTo(bot.pos) > 8) { bot.wander.copy(p); return; }
+      if (q.distanceTo(p) < 0.01 && p.distanceTo(f.pos) > 8) { f.wander.copy(p); return; }
     }
-    bot.wander.set(rand(-20, 20), 0, rand(-20, 20)); resolve(bot.wander, 1.2);
+    f.wander.set(rand(-20, 20), 0, rand(-20, 20)); resolve(f.wander, 1.2);
+  }
+  // Builds this level's foes, either for a round or patrolling behind the menu
+  const SPAWNS = { 1: [[0, -24]], 2: [[0, -24]], 3: [[-9, -24], [9, -24]] };
+  function setupFoes(menu) {
+    foes = lvl().foes.map((k, i) => {
+      const f = makeFoe(k);
+      const [x, z] = menu ? [-6 + i * 10, 9] : SPAWNS[level][i];
+      f.pos.set(x, 0, z);
+      f.maxHp = f.hp = Math.round(KINDS[k].hp * lvl().hpMul);
+      f.fireCd = 1.6 + i * 0.6;
+      f.webCd = WEB[difficulty].cd * 0.5;
+      pickWander(f);
+      return f;
+    });
+    applyLoadout();
   }
 
   // ================= Effects =================
@@ -862,6 +987,9 @@
     shot: () => { noise(0.14, 3200, 0.55); tone(190, 55, 0.12, 'triangle', 0.35); },
     enemy: (vol) => { tone(1100, 180, 0.16, 'square', 0.1 * vol); noise(0.08, 1800, 0.15 * vol); },
     ink: (vol) => { tone(340, 90, 0.2, 'sine', 0.24 * vol); noise(0.12, 700, 0.18 * vol); },
+    venom: (vol) => { tone(950, 280, 0.12, 'triangle', 0.14 * vol); noise(0.1, 2600, 0.12 * vol); },
+    webShot: (vol) => { noise(0.35, 900, 0.3 * vol); tone(220, 110, 0.3, 'sine', 0.12 * vol); },
+    webHit: () => { noise(0.5, 1400, 0.5); tone(160, 60, 0.45, 'triangle', 0.35); },
     plasma: (vol) => { tone(1800, 320, 0.14, 'sawtooth', 0.07 * vol); tone(520, 140, 0.12, 'square', 0.05 * vol); },
     hit: () => tone(1500, 2100, 0.06, 'sine', 0.22),
     hurt: () => { noise(0.22, 600, 0.6); tone(130, 45, 0.22, 'sine', 0.5); },
@@ -986,44 +1114,54 @@
     if (selectPressed) setMuted(!muted);
   }
   function rumble(strength, ms) {
-    try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {}
+    // Phones only allow vibration after the player has touched the page
+    const touched = !navigator.userActivation || navigator.userActivation.hasBeenActive;
+    try { if (navigator.vibrate && touched) navigator.vibrate(ms); } catch (e) {}
     const act = gpad.ref && gpad.ref.vibrationActuator;
     if (act && act.playEffect) act.playEffect('dual-rumble', { duration: ms, strongMagnitude: strength, weakMagnitude: strength * 0.6 }).catch(() => {});
   }
 
   // ---- Difficulty selector
   const diffRadios = [...document.querySelectorAll('input[name="diff"]')];
-  // Shows the right foe model and weapon look for the current level + difficulty
+  // Shows the models and weapon looks for the current level + difficulty
   function applyLoadout() {
-    const key = weaponKey(), W = WEAPONS[key];
-    botGroup.visible = level === 1 && bot.alive;
-    octoGroup.visible = level === 2 && bot.alive;
-    botGroup.userData.rifle.visible = key !== 'plasma';
-    botGroup.userData.plasma.visible = key === 'plasma';
-    botGroup.userData.weaponLight.color.setHex(key === 'plasma' ? 0xB040FF : 0xFF4A50);
-    octoGlow.color.setHex(W.glow); octoGlow.emissive.setHex(W.glow); octoGroup.userData.light.color.setHex(W.glow);
-    $('foeName').textContent = lvl().foe;
+    for (const k in GROUPS) GROUPS[k].visible = foes.some((f) => f.kind === k && f.alive);
+    const hk = weaponKeyFor('human');
+    botGroup.userData.rifle.visible = hk !== 'plasma';
+    botGroup.userData.plasma.visible = hk === 'plasma';
+    botGroup.userData.weaponLight.color.setHex(hk === 'plasma' ? 0xB040FF : 0xFF4A50);
+    const og = WEAPONS[weaponKeyFor('octo')].glow;
+    octoGlow.color.setHex(og); octoGlow.emissive.setHex(og); octoGroup.userData.light.color.setHex(og);
+    const alive = foes.filter((f) => f.alive).map((f) => KINDS[f.kind].name);
+    $('foeName').textContent = alive.length ? alive.join(' · ') : lvl().label;
   }
   function setDifficulty(d) {
     if (!DIFFS[d]) d = 'medio';
     difficulty = d;
     diffRadios.forEach((r) => { r.checked = r.value === d; });
-    $('diffNote').textContent = level === 2 ? OCTO_NOTES[d] : DIFFS[d].note;
+    $('diffNote').textContent = level === 3 ? L3_NOTES[d] : level === 2 ? OCTO_NOTES[d] : DIFFS[d].note;
     applyLoadout();
   }
 
-  // ---- Level selector: level 2 unlocks only after winning every round of level 1 (3–0)
+  // ---- Level selector: each level unlocks only after winning every round of the previous one (3–0)
   const levelRadios = [...document.querySelectorAll('input[name="level"]')];
-  const level2Unlocked = () => store.get('arena-l2') === '1';
+  const unlockedUpTo = () => (store.get('arena-l3') === '1' ? 3 : store.get('arena-l2') === '1' ? 2 : 1);
+  const savedLevel = () => Math.min(unlockedUpTo(), Math.max(1, +store.get('arena-level') || 1));
   function syncLevelLock() {
-    levelRadios.forEach((r) => { r.disabled = !!challenge || (r.value === '2' && !level2Unlocked()); });
+    levelRadios.forEach((r) => { r.disabled = !!challenge || +r.value > unlockedUpTo(); });
   }
+  const LEVEL_NOTES = {
+    1: 'CENTINELA en su forma humana.',
+    2: 'CENTINELA se transforma en un pulpo gigante con 150 de blindaje que dispara con dos armas.',
+    3: 'Dos enemigos a la vez: el pulpo y una araña con cañón de veneno que además lanza telarañas que te congelan 5 segundos.',
+  };
   function setLevel(l) {
-    level = l === 2 ? 2 : 1;
+    level = l >= 1 && l <= MAX_LEVEL ? l : 1;
     levelRadios.forEach((r) => { r.checked = +r.value === level; });
-    $('levelNote').textContent = level === 2
-      ? 'CENTINELA se transforma en un pulpo gigante con 150 de blindaje que dispara con dos armas.'
-      : (level2Unlocked() ? 'CENTINELA en su forma humana.' : 'Para desbloquear el nivel 2 (el pulpo) gana el nivel 1 sin perder ninguna ronda: 3–0.');
+    const next = unlockedUpTo() + 1;
+    $('levelNote').textContent = LEVEL_NOTES[level] + (next <= MAX_LEVEL
+      ? ' Para desbloquear el nivel ' + next + ' gana el nivel ' + (next - 1) + ' sin perder ninguna ronda: 3–0.' : '');
+    if (state === 'menu' || state === 'matchEnd') setupFoes(true);
     setDifficulty(difficulty);
   }
   levelRadios.forEach((r) => r.addEventListener('change', () => { if (r.checked) { setLevel(+r.value); store.set('arena-level', r.value); } }));
@@ -1035,14 +1173,15 @@
       const q = new URLSearchParams(location.search);
       if (!q.has('reto')) return null;
       const d = q.get('d'), p = +q.get('p'), b = +q.get('b'), t = +q.get('t'), l = +(q.get('l') || 1);
-      if ((l !== 1 && l !== 2) || !DIFFS[d] || !(p >= 0 && p <= WIN) || !(b >= 0 && b <= WIN) || (p !== WIN && b !== WIN) || p === b || !(t > 0 && t < 36000)) return null;
+      if (!(l === 1 || l === 2 || l === 3) || !DIFFS[d] || !(p >= 0 && p <= WIN) || !(b >= 0 && b <= WIN) || (p !== WIN && b !== WIN) || p === b || !(t > 0 && t < 36000)) return null;
       const n = (q.get('n') || '').replace(/[^\p{L}\p{N} ._-]/gu, '').trim().slice(0, 16);
       return { d, l, p, b, t: Math.round(t), n: n || 'Tu amigo' };
     } catch (e) { return null; }
   }
-  const foeOf = (l) => (l === 2 ? 'el pulpo' : 'CENTINELA');
-  const describe = (r) => (r.p > r.b ? 'Le ganó ' + r.p + '–' + r.b + ' a ' + foeOf(r.l) : 'Perdió ' + r.p + '–' + r.b + ' contra ' + foeOf(r.l))
-    + ' en ' + DIFFS[r.d].name + (r.l === 2 ? ' (nivel 2)' : '') + ', en ' + fmtTime(r.t) + '.';
+  const FOE_A = { 1: 'a CENTINELA', 2: 'al pulpo', 3: 'al pulpo y la araña' };
+  const FOE_VS = { 1: 'contra CENTINELA', 2: 'contra el pulpo', 3: 'contra el pulpo y la araña' };
+  const describe = (r) => (r.p > r.b ? 'Le ganó ' + r.p + '–' + r.b + ' ' + FOE_A[r.l] : 'Perdió ' + r.p + '–' + r.b + ' ' + FOE_VS[r.l])
+    + ' en ' + DIFFS[r.d].name + (r.l > 1 ? ' (nivel ' + r.l + ')' : '') + ', en ' + fmtTime(r.t) + '.';
   // Higher is better: a win beats a loss, then round margin, then a faster time.
   const compareResults = (a, b) => ((a.p > a.b) - (b.p > b.b)) || ((a.p - a.b) - (b.p - b.b)) || (b.t - a.t);
   let challenge = parseChallenge();
@@ -1060,7 +1199,7 @@
   $('noChallengeBtn').addEventListener('click', () => {
     challenge = null;
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
-    setLevel(level2Unlocked() && store.get('arena-level') === '2' ? 2 : 1);
+    setLevel(savedLevel());
     setDifficulty(store.get('arena-diff') || 'medio');
     renderChallenge(); $('verdict').hidden = true;
   });
@@ -1079,10 +1218,10 @@
     return u.toString();
   }
   function challengeText() {
-    const r = lastResult, where = DIFFS[r.d].name + (r.l === 2 ? ', nivel 2' : '');
+    const r = lastResult, where = DIFFS[r.d].name + (r.l > 1 ? ', nivel ' + r.l : '');
     return r.p > r.b
-      ? 'Le gané ' + r.p + '–' + r.b + ' a ' + foeOf(r.l) + ' en Arena Ocaso (' + where + ', ' + fmtTime(r.t) + '). ¿Me superas?'
-      : (r.l === 2 ? 'El pulpo' : 'CENTINELA') + ' me ganó ' + r.p + '–' + r.b + ' en Arena Ocaso (' + where + '). ¿Tú puedes hacerlo mejor?';
+      ? 'Le gané ' + r.p + '–' + r.b + ' ' + FOE_A[r.l] + ' en Arena Ocaso (' + where + ', ' + fmtTime(r.t) + '). ¿Me superas?'
+      : { 1: 'CENTINELA me ganó', 2: 'El pulpo me ganó', 3: 'El pulpo y la araña me ganaron' }[r.l] + ' ' + r.p + '–' + r.b + ' en Arena Ocaso (' + where + '). ¿Tú puedes hacerlo mejor?';
   }
   function refreshShare() {
     if (!lastResult) return;
@@ -1107,9 +1246,9 @@
   $('iosHint').hidden = !(IS_IOS && !IS_STANDALONE);
 
   difficulty = DIFFS[store.get('arena-diff')] ? store.get('arena-diff') : 'medio';
-  setLevel(level2Unlocked() && store.get('arena-level') === '2' ? 2 : 1);
+  setLevel(savedLevel());
   renderChallenge();
-  $('nextLevelBtn').addEventListener('click', () => { setLevel(2); store.set('arena-level', '2'); startMatch(); });
+  $('nextLevelBtn').addEventListener('click', () => { setLevel(Math.min(MAX_LEVEL, level + 1)); store.set('arena-level', String(level)); startMatch(); });
 
   // ---- Install as an app (Android Chrome offers this once the PWA criteria are met)
   let installPrompt = null;
@@ -1129,10 +1268,24 @@
   // ================= HUD =================
   const hpFill = $('hpFill'), hpNum = $('hpNum'), foeFill = $('foeFill'), ammoNum = $('ammoNum'), ammoState = $('ammoState');
   const banner = $('banner'), hitmark = $('hitmark'), vignette = $('vignette');
+  const webbed = $('webbed'), webTime = $('webTime');
+  // Full-screen spider web drawn as SVG, shown while the player is frozen
+  (function drawWebOverlay() {
+    const cx = 500, cy = 300, n = 14; let d = '';
+    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; d += 'M' + cx + ' ' + cy + 'L' + (cx + Math.cos(a) * 900).toFixed(1) + ' ' + (cy + Math.sin(a) * 900).toFixed(1); }
+    for (let r = 40; r < 700; r *= 1.32) {
+      for (let i = 0; i <= n; i++) { const a = i / n * Math.PI * 2, rr = r * (0.92 + 0.08 * Math.sin(i * 2.3)); d += (i ? 'L' : 'M') + (cx + Math.cos(a) * rr).toFixed(1) + ' ' + (cy + Math.sin(a) * rr).toFixed(1); }
+    }
+    const svg = "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1000 600' preserveAspectRatio='xMidYMid slice'>"
+      + "<rect width='1000' height='600' fill='rgb(230,240,255)' fill-opacity='0.16'/>"
+      + "<path d='" + d + "' fill='none' stroke='white' stroke-opacity='0.75' stroke-width='2.2'/></svg>";
+    webbed.style.backgroundImage = 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+  })();
   function pips() {
     const mk = (n) => Array.from({ length: WIN }, (_, i) => `<span class="pip${i < n ? ' on' : ''}"></span>`).join('');
     $('pips-p').innerHTML = mk(score.p); $('pips-b').innerHTML = mk(score.b);
-    $('roundLbl').textContent = (level === 2 ? 'N2 · ' : '') + 'RONDA ' + round + ' · ' + DIFFS[difficulty].name.toUpperCase();
+    const compact = window.innerWidth < 900;
+    $('roundLbl').textContent = (level > 1 ? 'N' + level + ' · ' : '') + (compact ? 'R' : 'RONDA ') + round + ' · ' + DIFFS[difficulty].name.toUpperCase();
   }
   let bannerTimer = null;
   function showBanner(html, ms) {
@@ -1142,7 +1295,11 @@
   function updateHud() {
     const hp = Math.max(0, Math.ceil(player.hp));
     hpNum.textContent = hp; hpFill.style.width = hp + '%'; hpFill.classList.toggle('low', hp <= 30);
-    foeFill.style.width = Math.max(0, bot.hp / lvl().hp * 100) + '%';
+    let hpSum = 0, maxSum = 0;
+    for (const f of foes) { hpSum += Math.max(0, f.hp); maxSum += f.maxHp; }
+    foeFill.style.width = (maxSum ? hpSum / maxSum * 100 : 0) + '%';
+    webbed.hidden = !(player.frozen > 0);
+    if (player.frozen > 0) webTime.textContent = player.frozen.toFixed(1).replace('.', ',') + ' s';
     ammoNum.innerHTML = (player.reload > 0 ? 0 : player.ammo) + '<small> / ' + MAG + '</small>';
     ammoState.textContent = player.reload > 0 ? 'RECARGANDO…' : '';
     hitmark.classList.toggle('show', hitT > 0);
@@ -1165,7 +1322,11 @@
     rg.fillStyle = 'rgba(243,234,215,.4)';
     for (const o of OBST) rg.fillRect(o.x - o.w / 2, o.z - o.d / 2, o.w, o.d);
     rg.strokeStyle = 'rgba(228,123,76,.8)'; rg.lineWidth = 0.35; rg.strokeRect(-ARENA, -ARENA, ARENA * 2, ARENA * 2);
-    if (bot.alive) { rg.fillStyle = bot.sees ? '#E0304A' : 'rgba(224,48,74,.55)'; rg.beginPath(); rg.arc(bot.pos.x, bot.pos.z, 1.3, 0, Math.PI * 2); rg.fill(); }
+    for (const f of foes) {
+      if (!f.alive) continue;
+      rg.fillStyle = KINDS[f.kind].dot + (f.sees ? '' : '99');
+      rg.beginPath(); rg.arc(f.pos.x, f.pos.z, 1.3, 0, Math.PI * 2); rg.fill();
+    }
     for (const bl of bullets) { rg.fillStyle = bl.radar; rg.fillRect(bl.g.position.x - 0.35, bl.g.position.z - 0.35, 0.7, 0.7); }
     rg.setTransform(1, 0, 0, 1, 0, 0);
     rg.fillStyle = '#8FE3F0'; rg.beginPath(); rg.moveTo(c, c - 11); rg.lineTo(c + 8, c + 8); rg.lineTo(c, c + 3); rg.lineTo(c - 8, c + 8); rg.closePath(); rg.fill();
@@ -1175,18 +1336,17 @@
   // ================= Match flow =================
   function resetRound() {
     clearFx();
-    Object.assign(player, { hp: 100, alive: true, fireCd: 0.3, ammo: MAG, reload: 0, yaw: 0, turnHold: 0, recoil: 0 });
+    Object.assign(player, { hp: 100, alive: true, fireCd: 0.3, ammo: MAG, reload: 0, yaw: 0, turnHold: 0, recoil: 0, frozen: 0 });
     player.pos.set(0, 0, 24); player.vel.set(0, 0, 0);
-    Object.assign(bot, { hp: lvl().hp, alive: true, fireCd: 1.6, sees: false, hunting: false, stuck: 0, reaction: 0, yaw: Math.PI, faceYaw: Math.PI, flash: 0, burstLeft: 0, burstT: 0 });
-    bot.pos.set(0, 0, -24); bot.vel.set(0, 0, 0); pickWander();
-    applyLoadout();
+    setupFoes(false);
     hurt = 0; shake = 0;
     pips(); updateHud();
     const sub = round === 1
-      ? (level === 2 ? 'CENTINELA se transforma en pulpo · dispara con dos armas'
+      ? (level === 3 ? 'El pulpo y la araña · cuidado con la telaraña'
+        : level === 2 ? 'CENTINELA se transforma en pulpo · dispara con dos armas'
         : weapon() === WEAPONS.plasma ? 'CENTINELA lleva un fusil de plasma' : 'Encuentra a CENTINELA')
-      : lvl().the + ' dispara con más precisión';
-    showBanner('RONDA ' + round + '<small>' + sub + '</small>', round === 1 && (level === 2 || weapon() === WEAPONS.plasma) ? 2400 : 1600);
+      : (level === 3 ? 'Disparan con más precisión' : lvl().the + ' dispara con más precisión');
+    showBanner('RONDA ' + round + '<small>' + sub + '</small>', round === 1 && (level > 1 || weapon() === WEAPONS.plasma) ? 2400 : 1600);
   }
   function startMatch() {
     initAudio(); goFullscreen();
@@ -1200,33 +1360,43 @@
   function endRound(winner) {
     if (state !== 'playing') return;
     score[winner]++; state = 'roundEnd'; roundTimer = 2.6; pips();
+    player.frozen = 0;
     if (score[winner] >= WIN) {
       roundTimer = 2.2;
-      showBanner(winner === 'p' ? lvl().foe + ' DERRIBADO<small>Última ronda ganada</small>' : 'HAS CAÍDO<small>Última ronda perdida</small>', 2100);
+      showBanner(winner === 'p' ? lvl().down + '<small>Última ronda ganada</small>' : 'HAS CAÍDO<small>Última ronda perdida</small>', 2100);
     } else {
       showBanner(winner === 'p' ? 'RONDA PARA TI<small>' + score.p + ' — ' + score.b + '</small>' : 'RONDA PARA ' + lvl().the + '<small>' + score.p + ' — ' + score.b + '</small>', 2300);
     }
     if (winner === 'p') sfx.ding();
   }
+  const END_TEXT = {
+    1: { win: 'Has derribado a CENTINELA.', lose: 'CENTINELA se queda con la arena. Muévete entre coberturas y no te quedes quieto en campo abierto.' },
+    2: { win: 'Has derrotado al pulpo. CENTINELA no se esperaba esto.', lose: 'El pulpo se queda con la arena. Sus dos armas cubren mucho espacio: muévete de lado y usa los bloques altos.' },
+    3: { win: 'Has derrotado al pulpo y a la araña. La arena es tuya.', lose: 'El pulpo y la araña se quedan con la arena. Esquiva la telaraña blanca: si te atrapa, quedas inmóvil 5 segundos.' },
+  };
+  const NEXT_NAME = { 2: 'Nivel 2: el pulpo', 3: 'Nivel 3: pulpo y araña' };
   function finishMatch() {
     state = 'matchEnd';
     const won = score.p > score.b;
-    $('hud').hidden = true; gun.visible = false;
+    $('hud').hidden = true; gun.visible = false; webbed.hidden = true;
     lastResult = { d: difficulty, l: level, p: score.p, b: score.b, t: Math.max(1, Math.round(matchTime)) };
     $('kicker').textContent = (won ? 'Duelo terminado · has ganado' : 'Duelo terminado · has perdido') + ' · Nivel ' + level + ' · ' + DIFFS[difficulty].name;
     $('title').innerHTML = won ? '<span>Victoria</span>' : '<span>Derrota</span>';
+    // The next level unlocks only with a perfect 3–0
     const perfect = won && score.b === 0;
-    const newlyUnlocked = perfect && level === 1 && !level2Unlocked();
-    if (perfect && level === 1) store.set('arena-l2', '1');
-    $('lede').textContent = won
-      ? (level === 2 ? 'Has derrotado al pulpo. CENTINELA no se esperaba esto.'
-        : newlyUnlocked ? 'Ganaste las 3 rondas sin perder ninguna. Nivel 2 desbloqueado: CENTINELA se transforma en un pulpo gigante con dos armas.'
-        : perfect ? 'Ganaste las 3 rondas sin perder ninguna. Puedes pasar al nivel 2 o pedir la revancha.'
-        : level2Unlocked() ? 'Has derribado a CENTINELA. Gana 3–0 para pasar directo al nivel 2, o elígelo en el menú.'
-        : 'Has derribado a CENTINELA, pero perdiste alguna ronda. Para desbloquear el nivel 2 tienes que ganar 3–0.')
-      : (level === 2 ? 'El pulpo se queda con la arena. Sus dos armas cubren mucho espacio: muévete de lado y usa los bloques altos.'
-        : 'CENTINELA se queda con la arena. Muévete entre coberturas y no te quedes quieto en campo abierto.');
-    $('nextLevelBtn').hidden = !(perfect && level === 1 && !challenge);
+    const next = level + 1, hasNext = next <= MAX_LEVEL;
+    const wasUnlocked = hasNext && unlockedUpTo() >= next;
+    if (perfect && hasNext) store.set('arena-l' + next, '1');
+    let text = won ? END_TEXT[level].win : END_TEXT[level].lose;
+    if (won && hasNext) {
+      text += perfect
+        ? (wasUnlocked ? ' Ganaste 3–0: puedes pasar al nivel ' + next + '.' : ' Ganaste las 3 rondas sin perder ninguna: nivel ' + next + ' desbloqueado.')
+        : (wasUnlocked ? ' El nivel ' + next + ' ya está disponible en el menú.' : ' Perdiste alguna ronda: para desbloquear el nivel ' + next + ' tienes que ganar 3–0.');
+    }
+    $('lede').textContent = text;
+    const nb = $('nextLevelBtn');
+    nb.hidden = !(perfect && hasNext && !challenge);
+    if (hasNext) nb.textContent = NEXT_NAME[next] + ' ↵';
     syncLevelLock(); setLevel(level);
     const res = $('result'); res.hidden = false;
     res.innerHTML = 'Marcador final &nbsp;<b>' + score.p + ' — ' + score.b + '</b> &nbsp;·&nbsp; Tiempo <b>' + fmtTime(lastResult.t) + '</b>';
@@ -1252,20 +1422,24 @@
   // ================= Combat =================
   const aimRay = new THREE.Raycaster();
   const CENTER = new THREE.Vector2(0, 0);
-  // Turning only with the arrow keys makes pixel-exact aim unfair, so the android's
-  // hit zone is a generous cylinder that widens slightly with distance.
-  const HIT_R = 0.95, HIT_R_PER_M = 0.03;
+  // Turning only with the arrow keys makes pixel-exact aim unfair, so each foe's
+  // hit zone is a generous sphere that widens slightly with distance.
+  const HIT_R_PER_M = 0.03;
   function startReload() { if (player.reload <= 0) { player.reload = 1.3; sfx.click(); } }
-  function botHitAlongRay(ray, maxDist) {
-    if (!bot.alive) return null;
-    const L = lvl();
-    const c = new V3(bot.pos.x, L.hitY + foeGroup().position.y, bot.pos.z);
-    const t = c.clone().sub(ray.origin).dot(ray.direction);
-    if (!(t > 0 && t < maxDist)) return null;
-    const closest = ray.origin.clone().addScaledVector(ray.direction, t);
-    const off = closest.clone().sub(c);
-    if (!(off.length() <= L.hitR + t * HIT_R_PER_M)) return null;
-    return c.add(off.clampLength(0, L.hitR * 0.6));
+  // Nearest live foe whose hit zone the ray crosses before maxDist
+  function foeHitAlongRay(ray, maxDist) {
+    let best = null;
+    for (const f of foes) {
+      if (!f.alive) continue;
+      const K = KINDS[f.kind];
+      const c = new V3(f.pos.x, K.hitY + GROUPS[f.kind].position.y, f.pos.z);
+      const t = c.clone().sub(ray.origin).dot(ray.direction);
+      if (!(t > 0 && t < maxDist) || (best && t >= best.t)) continue;
+      const off = ray.origin.clone().addScaledVector(ray.direction, t).sub(c);
+      if (!(off.length() <= K.hitR + t * HIT_R_PER_M)) continue;
+      best = { f, t, point: c.add(off.clampLength(0, K.hitR * 0.6)) };
+    }
+    return best;
   }
   function playerShoot() {
     if (player.reload > 0 || player.fireCd > 0) return;
@@ -1278,44 +1452,56 @@
     const wallDist = hits.length ? hits[0].distance : Infinity;
     const start = muzzle.getWorldPosition(new V3());
     let end;
-    const botPoint = botHitAlongRay(aimRay.ray, wallDist);
-    if (botPoint) {
-      end = botPoint; damageBot(20, end);
+    const hit = foeHitAlongRay(aimRay.ray, wallDist);
+    if (hit) {
+      end = hit.point; damageFoe(hit.f, 20, end);
     } else if (hits.length) {
       end = hits[0].point; burst(end, 0xD9B98A, 6, 3, 0.35);
     } else end = aimRay.ray.origin.clone().addScaledVector(aimRay.ray.direction, 150);
     tracer(start, end, 0x8FE3F0);
     if (player.ammo === 0) startReload();
   }
-  function damageBot(dmg, at) {
-    bot.hp -= dmg; bot.flash = 0.15; hitT = 0.2; sfx.hit();
+  const DEATH_COLORS = { human: [0xE0304A, 0xFFB27A, 0x2B2934], octo: [0x6E2547, 0x18C8A8, 0x101018], spider: [0x1C1420, 0x9CFF3A, 0xE8FFC8] };
+  function damageFoe(f, dmg, at) {
+    f.hp -= dmg; f.flash = 0.15; hitT = 0.2; sfx.hit();
     burst(at, 0xFF5A5A, 14, 5, 0.45); burst(at, 0xFFFFFF, 5, 3, 0.2);
-    if (!bot.sees) { bot.hunting = true; bot.lastSeen.copy(player.pos); }
-    if (bot.hp <= 0) {
-      bot.alive = false; bot.hp = 0; sfx.boom();
-      const c = bot.pos.clone().setY(level === 2 ? 1.9 : 1.4);
-      if (level === 2) { burst(c, 0x6E2547, 40, 10, 1.2); burst(c, 0x18C8A8, 24, 8, 0.9); burst(c, 0x101018, 26, 7, 1.3); }
-      else { burst(c, 0xE0304A, 30, 9, 1.0); burst(c, 0xFFB27A, 24, 7, 0.9); burst(c, 0x2B2934, 20, 6, 1.2); }
-      foeGroup().visible = false; shake = 0.25;
-      endRound('p');
+    if (!f.sees) { f.hunting = true; f.lastSeen.copy(player.pos); }
+    if (f.hp > 0) return;
+    f.alive = false; f.hp = 0; sfx.boom();
+    const c = f.pos.clone().setY(KINDS[f.kind].hitY);
+    const [c1, c2, c3] = DEATH_COLORS[f.kind];
+    burst(c, c1, 34, 9, 1.1); burst(c, c2, 24, 8, 0.9); burst(c, c3, 22, 6, 1.2);
+    shake = 0.25;
+    applyLoadout();
+    const left = foes.filter((o) => o.alive);
+    if (!left.length) endRound('p');
+    else if (state === 'playing') {
+      showBanner(KINDS[f.kind].name + (f.kind === 'spider' ? ' DERRIBADA' : ' DERRIBADO') + '<small>Queda ' + left.map((o) => KINDS[o.kind].name).join(' y ') + '</small>', 1500);
     }
   }
-  function botShoot(d) {
-    bot.gunSide *= -1;
-    const s = Math.sin(bot.yaw), c = Math.cos(bot.yaw);
-    const key = weaponKey(), W = WEAPONS[key];
-    // Muzzles in the foe's local space (x right, z forward = -z)
-    const muzzles = level === 2
-      ? (W.dual === 'both' ? [[-1.05, 1.4, -1.9], [1.05, 1.4, -1.9]] : [[1.05 * bot.gunSide, 1.4, -1.9]])
-      : [[0.05, 1.42, W.muzzleZ]];
-    const lift = foeGroup().position.y;
-    for (const [lx, ly, lz] of muzzles) {
-      const origin = new V3(bot.pos.x + lx * c + lz * s, ly + lift, bot.pos.z - lx * s + lz * c);
-      const target = player.pos.clone().setY(1.2);
-      const t = origin.distanceTo(target) / W.speed;
-      target.addScaledVector(player.vel, t * d.lead);
-      const dir = target.sub(origin).normalize();
-      dir.x += rand(-1, 1) * d.spread; dir.y += rand(-0.5, 0.5) * d.spread; dir.z += rand(-1, 1) * d.spread; dir.normalize();
+  // Muzzles in each foe's local space (x right, forward = -z)
+  const MUZZLES = {
+    human: (f, W) => [[0.05, 1.42, W.muzzleZ]],
+    octo: (f, W) => (W.dual === 'both' ? [[-1.05, 1.4, -1.9], [1.05, 1.4, -1.9]] : [[1.05 * f.gunSide, 1.4, -1.9]]),
+    spider: () => [[0.32, 1.56, -1.18]],
+  };
+  function toWorld(f, lx, ly, lz) {
+    const s = Math.sin(f.yaw), c = Math.cos(f.yaw);
+    return new V3(f.pos.x + lx * c + lz * s, ly + GROUPS[f.kind].position.y, f.pos.z - lx * s + lz * c);
+  }
+  function aimAt(origin, speed, d, spreadMul) {
+    const target = player.pos.clone().setY(1.2);
+    target.addScaledVector(player.vel, origin.distanceTo(target) / speed * d.lead);
+    const dir = target.sub(origin).normalize(), sp = d.spread * (spreadMul || 1);
+    dir.x += rand(-1, 1) * sp; dir.y += rand(-0.5, 0.5) * sp; dir.z += rand(-1, 1) * sp;
+    return dir.normalize();
+  }
+  function botShoot(f, d) {
+    f.gunSide *= -1;
+    const key = weaponKeyFor(f.kind), W = WEAPONS[key];
+    for (const [lx, ly, lz] of MUZZLES[f.kind](f, W)) {
+      const origin = toWorld(f, lx, ly, lz);
+      const dir = aimAt(origin, W.speed, d);
       const g = new THREE.Group();
       const core = new THREE.Mesh(bulletGeo, bulletMats[key]);
       core.scale.setScalar(W.size / 0.9);
@@ -1323,8 +1509,22 @@
       g.position.copy(origin); scene.add(g);
       bullets.push({ g, v: dir.multiplyScalar(W.speed), life: 4, dmg: W.dmg || DIFFS[difficulty].dmg, radar: W.radar });
     }
-    const vol = Math.max(0.25, 1 - bot.pos.distanceTo(player.pos) / 60);
-    sfx[W.sound](vol);
+    sfx[W.sound](Math.max(0.25, 1 - f.pos.distanceTo(player.pos) / 60));
+  }
+  // Spider web: slow and dodgeable, stopped by cover; a hit freezes the player for FREEZE_S seconds
+  function throwWeb(f, d) {
+    const W = WEB[difficulty];
+    const origin = toWorld(f, 0, 1.15, -1.0);
+    const dir = aimAt(origin, W.speed, d, 0.5);
+    const g = new THREE.Sprite(new THREE.SpriteMaterial({ map: webTex, transparent: true, depthWrite: false }));
+    g.scale.setScalar(1.6); g.position.copy(origin); scene.add(g);
+    bullets.push({ g, v: dir.multiplyScalar(W.speed), life: 5, web: true, radar: '#FFFFFF' });
+    sfx.webShot(Math.max(0.3, 1 - f.pos.distanceTo(player.pos) / 50));
+  }
+  function freezePlayer() {
+    if (!player.alive || state !== 'playing') return;
+    player.frozen = FREEZE_S; player.vel.set(0, 0, 0);
+    sfx.webHit(); rumble(1, 300); shake = Math.max(shake, 0.1);
   }
   function damagePlayer(dmg, from) {
     if (!player.alive || state !== 'playing') return;
@@ -1334,25 +1534,29 @@
 
   // ================= Update =================
   function updatePlayer(dt) {
-    const turn = (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
+    // Caught in a web: no moving or turning (you can still shoot what is in front of you)
+    const frozen = player.frozen > 0;
+    if (frozen) player.frozen = Math.max(0, player.frozen - dt);
+    const turn = frozen ? 0 : (keys.left ? 1 : 0) - (keys.right ? 1 : 0);
     player.turnHold = turn ? Math.min(player.turnHold + dt, 0.35) : 0;
     const turnSpeed = 0.8 + 1.7 * (player.turnHold / 0.35);
-    const padTurn = Math.sign(gpad.turn) * Math.pow(Math.min(1, Math.abs(gpad.turn)), 1.6) * 2.8; // finer aim near centre
+    const padTurn = frozen ? 0 : Math.sign(gpad.turn) * Math.pow(Math.min(1, Math.abs(gpad.turn)), 1.6) * 2.8; // finer aim near centre
     player.yaw = wrapAngle(player.yaw + (turn * turnSpeed + padTurn) * dt);
 
     const clamp1 = (v) => Math.max(-1, Math.min(1, v));
-    const f = clamp1((keys.fwd ? 1 : 0) - (keys.back ? 1 : 0) + gpad.move);
-    const st = clamp1((keys.sr ? 1 : 0) - (keys.sl ? 1 : 0) + gpad.strafe);
+    const f = frozen ? 0 : clamp1((keys.fwd ? 1 : 0) - (keys.back ? 1 : 0) + gpad.move);
+    const st = frozen ? 0 : clamp1((keys.sr ? 1 : 0) - (keys.sl ? 1 : 0) + gpad.strafe);
     const sy = Math.sin(player.yaw), cy = Math.cos(player.yaw);
     const wish = new V3(-sy * f + cy * st, 0, -cy * f - sy * st);
     const amount = Math.min(1, Math.hypot(f, st));
     if (wish.lengthSq() > 0) wish.normalize().multiplyScalar((f < 0 && Math.abs(st) < 0.3 ? 5 : 7) * amount);
     player.vel.lerp(wish, Math.min(1, dt * 10));
     player.pos.addScaledVector(player.vel, dt);
-    // keep away from bot
-    if (bot.alive) {
-      const dx = player.pos.x - bot.pos.x, dz = player.pos.z - bot.pos.z, dd = Math.hypot(dx, dz), min = PLAYER_R + lvl().radius;
-      if (dd < min && dd > 1e-4) { player.pos.x = bot.pos.x + dx / dd * min; player.pos.z = bot.pos.z + dz / dd * min; }
+    // keep away from foes
+    for (const o of foes) {
+      if (!o.alive) continue;
+      const dx = player.pos.x - o.pos.x, dz = player.pos.z - o.pos.z, dd = Math.hypot(dx, dz), min = PLAYER_R + KINDS[o.kind].radius;
+      if (dd < min && dd > 1e-4) { player.pos.x = o.pos.x + dx / dd * min; player.pos.z = o.pos.z + dz / dd * min; }
     }
     resolve(player.pos, PLAYER_R);
     player.bob += player.vel.length() * dt * 1.7;
@@ -1363,55 +1567,76 @@
     firePressed = false;
   }
 
-  function updateBot(dt) {
-    if (!bot.alive) return;
-    const d = diffFor(round);
-    bot.losT -= dt;
-    if (bot.losT <= 0) {
-      bot.losT = 0.1;
-      const was = bot.sees;
-      bot.sees = player.alive && hasLOS();
-      if (bot.sees) { if (!was) bot.reaction = d.react; bot.lastSeen.copy(player.pos); bot.hunting = true; }
+  function updateFoe(f, dt) {
+    if (!f.alive) return;
+    const d = diffFor(round), K = KINDS[f.kind];
+    f.losT -= dt;
+    if (f.losT <= 0) {
+      f.losT = 0.1;
+      const was = f.sees;
+      f.sees = player.alive && hasLOS(f);
+      if (f.sees) { if (!was) f.reaction = d.react; f.lastSeen.copy(player.pos); f.hunting = true; }
     }
-    bot.reaction -= dt;
-    const toP = new V3(player.pos.x - bot.pos.x, 0, player.pos.z - bot.pos.z);
+    f.reaction -= dt;
+    const toP = new V3(player.pos.x - f.pos.x, 0, player.pos.z - f.pos.z);
     const dist = toP.length();
     const mv = new V3();
-    if (bot.sees) {
+    if (f.sees) {
       const dirP = toP.clone().divideScalar(dist || 1);
-      bot.strafeT -= dt;
-      if (bot.strafeT <= 0) { bot.strafeT = rand(0.7, 2.2); if (Math.random() < 0.7) bot.strafeDir *= -1; }
+      f.strafeT -= dt;
+      if (f.strafeT <= 0) { f.strafeT = rand(0.7, 2.2); if (Math.random() < 0.7) f.strafeDir *= -1; }
       if (dist > 16) mv.add(dirP); else if (dist < 7) mv.addScaledVector(dirP, -1);
-      mv.addScaledVector(new V3(-dirP.z, 0, dirP.x), bot.strafeDir * 0.9);
-      bot.faceYaw = Math.atan2(-toP.x, -toP.z);
-      bot.fireCd -= dt;
-      if (bot.fireCd <= 0 && bot.reaction <= 0 && Math.abs(wrapAngle(bot.faceYaw - bot.yaw)) < 0.3 && state === 'playing') {
-        const W = weapon();
-        bot.burstLeft = W.burst; bot.burstT = 0;
-        bot.fireCd = d.fire * W.cdMul * rand(0.75, 1.25);
+      mv.addScaledVector(new V3(-dirP.z, 0, dirP.x), f.strafeDir * 0.9);
+      f.faceYaw = Math.atan2(-toP.x, -toP.z);
+      f.fireCd -= dt;
+      const aimed = Math.abs(wrapAngle(f.faceYaw - f.yaw)) < 0.3;
+      if (f.fireCd <= 0 && f.reaction <= 0 && aimed && state === 'playing') {
+        const W = WEAPONS[weaponKeyFor(f.kind)];
+        f.burstLeft = W.burst; f.burstT = 0;
+        f.fireCd = d.fire * W.cdMul * rand(0.75, 1.25);
       }
-      if (bot.burstLeft > 0 && state === 'playing') {
-        bot.burstT -= dt;
-        if (bot.burstT <= 0) { botShoot(d); bot.burstLeft--; bot.burstT = weapon().gap; }
+      if (f.burstLeft > 0 && state === 'playing') {
+        f.burstT -= dt;
+        if (f.burstT <= 0) { botShoot(f, d); f.burstLeft--; f.burstT = WEAPONS[weaponKeyFor(f.kind)].gap; }
+      }
+      if (f.kind === 'spider' && state === 'playing') {
+        f.webCd -= dt;
+        if (f.webCd <= 0 && f.reaction <= 0 && aimed && dist < 26 && !(player.frozen > 0)) {
+          throwWeb(f, d); f.webCd = WEB[difficulty].cd * rand(0.85, 1.2);
+        }
       }
     } else {
-      bot.fireCd = Math.max(bot.fireCd, 0.35);
-      bot.burstLeft = 0;
-      const tgt = bot.hunting ? bot.lastSeen : bot.wander;
-      const to = new V3(tgt.x - bot.pos.x, 0, tgt.z - bot.pos.z);
-      if (to.length() < 1.6) { if (bot.hunting) bot.hunting = false; pickWander(); }
+      f.fireCd = Math.max(f.fireCd, 0.35);
+      f.burstLeft = 0;
+      const tgt = f.hunting ? f.lastSeen : f.wander;
+      const to = new V3(tgt.x - f.pos.x, 0, tgt.z - f.pos.z);
+      if (to.length() < 1.6) { if (f.hunting) f.hunting = false; pickWander(f); }
       else mv.copy(to.normalize());
-      if (bot.vel.lengthSq() > 0.3) bot.faceYaw = Math.atan2(-bot.vel.x, -bot.vel.z);
+      if (f.vel.lengthSq() > 0.3) f.faceYaw = Math.atan2(-f.vel.x, -f.vel.z);
     }
-    if (mv.lengthSq() > 0) mv.normalize().multiplyScalar(d.speed * (bot.sees ? 1 : 0.85));
-    bot.vel.lerp(mv, Math.min(1, dt * 5));
-    const prev = bot.pos.clone();
-    bot.pos.addScaledVector(bot.vel, dt);
-    resolve(bot.pos, lvl().radius);
-    const moved = prev.distanceTo(bot.pos), want = bot.vel.length() * dt;
-    if (want > 0.02 && moved < want * 0.35) bot.stuck += dt; else bot.stuck = Math.max(0, bot.stuck - dt);
-    if (bot.stuck > 0.45) { bot.stuck = 0; bot.strafeDir *= -1; if (!bot.sees) { bot.hunting = false; pickWander(); } }
-    bot.yaw = wrapAngle(bot.yaw + wrapAngle(bot.faceYaw - bot.yaw) * Math.min(1, dt * d.turn));
+    if (mv.lengthSq() > 0) mv.normalize().multiplyScalar(d.speed * K.speedMul * (f.sees ? 1 : 0.85));
+    f.vel.lerp(mv, Math.min(1, dt * 5));
+    const prev = f.pos.clone();
+    f.pos.addScaledVector(f.vel, dt);
+    resolve(f.pos, K.radius);
+    const moved = prev.distanceTo(f.pos), want = f.vel.length() * dt;
+    if (want > 0.02 && moved < want * 0.35) f.stuck += dt; else f.stuck = Math.max(0, f.stuck - dt);
+    if (f.stuck > 0.45) { f.stuck = 0; f.strafeDir *= -1; if (!f.sees) { f.hunting = false; pickWander(f); } }
+    f.yaw = wrapAngle(f.yaw + wrapAngle(f.faceYaw - f.yaw) * Math.min(1, dt * d.turn));
+  }
+  function updateFoes(dt) {
+    for (const f of foes) updateFoe(f, dt);
+    // Foes don't walk through each other
+    for (let i = 0; i < foes.length; i++) for (let j = i + 1; j < foes.length; j++) {
+      const a = foes[i], b = foes[j];
+      if (!a.alive || !b.alive) continue;
+      const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z, dd = Math.hypot(dx, dz), min = KINDS[a.kind].radius + KINDS[b.kind].radius;
+      if (dd < min && dd > 1e-4) {
+        const push = (min - dd) / 2, nx = dx / dd, nz = dz / dd;
+        a.pos.x -= nx * push; a.pos.z -= nz * push; b.pos.x += nx * push; b.pos.z += nz * push;
+        resolve(a.pos, KINDS[a.kind].radius); resolve(b.pos, KINDS[b.kind].radius);
+      }
+    }
   }
 
   function updateBullets(dt) {
@@ -1419,13 +1644,16 @@
       const b = bullets[i];
       const step = b.v.clone().multiplyScalar(dt);
       let dead = false;
+      if (b.web) b.g.material.rotation += dt * 4;
       // sub-step to avoid tunnelling
       for (let s = 0; s < 3 && !dead; s++) {
         b.g.position.addScaledVector(step, 1 / 3);
         const p = b.g.position;
-        const dx = p.x - player.pos.x, dz = p.z - player.pos.z;
-        if (player.alive && dx * dx + dz * dz < 0.5 * 0.5 && p.y > 0.1 && p.y < 1.85) { damagePlayer(b.dmg); dead = true; }
-        else if (insideSolid(p)) { burst(p, 0xFFB27A, 5, 3, 0.3); dead = true; }
+        const dx = p.x - player.pos.x, dz = p.z - player.pos.z, r = b.web ? 0.7 : 0.5;
+        if (player.alive && dx * dx + dz * dz < r * r && p.y > 0.1 && p.y < 1.85) {
+          if (b.web) freezePlayer(); else damagePlayer(b.dmg);
+          dead = true;
+        } else if (insideSolid(p)) { burst(p, b.web ? 0xFFFFFF : 0xFFB27A, b.web ? 10 : 5, 3, 0.4); dead = true; }
       }
       b.life -= dt;
       if (dead || b.life <= 0) { scene.remove(b.g); bullets.splice(i, 1); }
@@ -1449,34 +1677,38 @@
     hitT -= dt; hurt = Math.max(0, hurt - dt * 1.4); shake = Math.max(0, shake - dt * 0.6);
   }
 
-  let walkPhase = 0;
-  function applyBotVisual(dt) {
-    const spd = bot.vel.length();
-    if (level === 2) {
-      // Octopus: hovers, breathes and ripples its tentacles faster when moving
+  const setFlash = (mat, on, k) => { mat.emissive.setHex(on ? 0xFF5A6A : 0x000000); mat.emissiveIntensity = on ? k : 0; };
+  function applyFoeVisual(f, dt) {
+    const g = GROUPS[f.kind], spd = f.vel.length();
+    f.flash -= dt;
+    if (f.kind === 'octo') {
+      // Hovers, breathes and ripples its tentacles faster when moving
       const amp = 0.12 + 0.18 * Math.min(1, spd / 4);
-      octoGroup.position.set(bot.pos.x, 0.14 + Math.sin(time * 1.8) * 0.08, bot.pos.z);
-      octoGroup.rotation.y = bot.yaw;
-      octoGroup.userData.mantle.scale.y = 1.25 + Math.sin(time * 2.2) * 0.03;
-      for (const tn of octoGroup.userData.tentacles) {
+      g.position.set(f.pos.x, 0.14 + Math.sin(time * 1.8) * 0.08, f.pos.z);
+      g.rotation.y = f.yaw;
+      g.userData.mantle.scale.y = 1.25 + Math.sin(time * 2.2) * 0.03;
+      for (const tn of g.userData.tentacles) {
         tn.joints.forEach((j, k) => { j.rotation.x = (k === 0 ? -1.0 : 0.22) + Math.sin(time * (2.2 + spd * 0.5) + k * 0.7 + tn.phase) * amp; });
       }
-      bot.flash -= 1 / 60;
-      octoSkin.emissive.setHex(bot.flash > 0 ? 0xFF5A6A : 0x000000);
-      octoSkin.emissiveIntensity = bot.flash > 0 ? 0.9 : 0;
-      return;
+      setFlash(octoSkin, f.flash > 0, 0.9);
+    } else if (f.kind === 'spider') {
+      f.walk += spd * dt * 3.2;
+      g.position.set(f.pos.x, Math.abs(Math.sin(f.walk * 2)) * 0.03 * Math.min(1, spd / 3), f.pos.z);
+      g.rotation.y = f.yaw;
+      poseSpider(f.walk, Math.min(1, spd / 3));
+      setFlash(spiderSkin, f.flash > 0, 0.9);
+    } else {
+      f.walk += spd * dt * 2.2;
+      const swing = Math.sin(f.walk) * Math.min(1, spd / 4) * 0.6;
+      const [lLeg, rLeg] = g.userData.legs, [lArm, rArm] = g.userData.arms;
+      lLeg.rotation.x = swing; rLeg.rotation.x = -swing;
+      lArm.rotation.x = -1.15 + swing * 0.08; rArm.rotation.x = -1.15 - swing * 0.08;
+      g.position.set(f.pos.x, Math.abs(Math.cos(f.walk)) * 0.05 * Math.min(1, spd / 4), f.pos.z);
+      g.rotation.y = f.yaw;
+      setFlash(botMetal, f.flash > 0, 1.1);
     }
-    walkPhase += spd * dt * 2.2;
-    const swing = Math.sin(walkPhase) * Math.min(1, spd / 4) * 0.6;
-    const [lLeg, rLeg] = botGroup.userData.legs, [lArm, rArm] = botGroup.userData.arms;
-    lLeg.rotation.x = swing; rLeg.rotation.x = -swing;
-    lArm.rotation.x = -1.15 + swing * 0.08; rArm.rotation.x = -1.15 - swing * 0.08;
-    botGroup.position.set(bot.pos.x, Math.abs(Math.cos(walkPhase)) * 0.05 * Math.min(1, spd / 4), bot.pos.z);
-    botGroup.rotation.y = bot.yaw;
-    bot.flash -= 1 / 60;
-    botMetal.emissive.setHex(bot.flash > 0 ? 0xFF5A6A : 0x000000);
-    botMetal.emissiveIntensity = bot.flash > 0 ? 1.1 : 0;
   }
+  function applyFoesVisual(dt) { for (const f of foes) if (f.alive) applyFoeVisual(f, dt); }
 
   function applyCamera(dt) {
     if (state === 'menu') {
@@ -1511,18 +1743,16 @@
   }
   window.addEventListener('resize', resize); resize();
 
-  // Menu scene at rest: android patrolling near the centre
-  bot.pos.set(-6, 0, 9); pickWander();
 
   let last = performance.now();
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     resize();
     pollGamepad();
-    if (state === 'playing') { matchTime += dt; updatePlayer(dt); updateBot(dt); }
-    else if (state === 'menu' || state === 'matchEnd') { updateBot(dt); }
+    if (state === 'playing') { matchTime += dt; updatePlayer(dt); updateFoes(dt); }
+    else if (state === 'menu' || state === 'matchEnd') { updateFoes(dt); }
     else if (state === 'roundEnd') {
-      updateBot(dt);
+      updateFoes(dt);
       roundTimer -= dt;
       if (roundTimer <= 0) {
         if (score.p >= WIN || score.b >= WIN) finishMatch();
@@ -1530,7 +1760,7 @@
       }
     }
     updateBullets(dt); updateFx(dt);
-    applyBotVisual(dt); applyCamera(dt);
+    applyFoesVisual(dt); applyCamera(dt);
     if (state !== 'menu' && state !== 'matchEnd') { updateHud(); drawRadar(); }
     renderer.render(scene, camera);
     requestAnimationFrame(frame);

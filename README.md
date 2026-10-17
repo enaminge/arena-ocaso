@@ -9,13 +9,21 @@ Se juega en https://enaminge.github.io/arena-ocaso/ desde PC, tablet, Android o 
 - **Nivel 1 · Centinela**: CENTINELA en su forma humana, con 100 de blindaje.
 - **Nivel 2 · El pulpo**: CENTINELA se transforma en un pulpo gigante con 150 de blindaje, seis tentáculos y **dos armas**, una en cada tentáculo delantero. Es más grande (más fácil de acertar) pero cubre mucho más espacio con sus disparos.
 
-El nivel 2 **solo se desbloquea ganando el nivel 1 sin perder ninguna ronda (3–0)**, en cualquier dificultad. Una vez desbloqueado queda disponible en el menú.
+- **Nivel 3 · Pulpo y araña**: dos enemigos a la vez. El pulpo (120 de blindaje) y una araña (88) con un cañón de veneno que además **lanza telarañas: si una te alcanza quedas congelado 5 segundos** (no puedes moverte ni girar, pero sí disparar a lo que tengas delante). La telaraña es lenta, se puede esquivar y los bloques la frenan. La ronda se gana al derribar a los dos.
+
+Cada nivel **solo se desbloquea ganando el anterior sin perder ninguna ronda (3–0)**, en cualquier dificultad. Una vez desbloqueado queda disponible en el menú.
 
 | Dificultad | Cómo dispara el pulpo | Velocidad del proyectil | Daño por impacto |
 |---|---|---|---|
 | Fácil | tinta, alternando las dos armas | 22 | 8 |
 | Medio | tinta, con las dos armas a la vez | 26 | 10 |
 | Difícil | ráfagas de plasma de 3 tiros con las dos armas a la vez (6 proyectiles) | 34 | 10 |
+
+| Dificultad | Cómo dispara la araña (nivel 3) | Telaraña |
+|---|---|---|
+| Fácil | veneno, tiro a tiro (8 de daño) | una cada 12 s aprox., lenta |
+| Medio | veneno, tiro a tiro (8 de daño) | una cada 9 s aprox. |
+| Difícil | ráfagas de 2 tiros de veneno (9 de daño) | una cada 7 s aprox., más rápida |
 
 ## Dificultad
 

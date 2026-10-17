@@ -28,6 +28,7 @@ CENTINELA patrulla la arena, te busca cuando te pierde de vista y mejora su punt
 • Duelo 1 contra 1 al mejor de 5 rondas
 • Tres niveles de dificultad: Fácil, Medio y Difícil
 • Nivel 2: CENTINELA se transforma en un pulpo gigante que dispara con dos armas (se desbloquea ganando el nivel 1 por 3–0)
+• Nivel 3: el pulpo y una araña a la vez; la araña lanza telarañas que te congelan 5 segundos (se desbloquea ganando el nivel 2 por 3–0)
 • Enemigo con inteligencia artificial que se vuelve más difícil en cada ronda
 • Desafía a tus amigos: comparte tu resultado por WhatsApp y comprueba quién lo hace mejor
 • Controles táctiles simples: flechas para moverte y girar, y un botón para disparar
