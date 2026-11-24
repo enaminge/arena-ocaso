@@ -1,7 +1,7 @@
 // Offline support: the game shell and three.js are cached on install. Pages load
 // network-first so a new version on GitHub Pages reaches players the next time they are online.
 // three.js is self-hosted (vendor/) so there is no third-party CDN in the runtime.
-const CACHE = 'arena-ocaso-v3';
+const CACHE = 'arena-ocaso-v4';
 const CORE = [
   './',
   './index.html',

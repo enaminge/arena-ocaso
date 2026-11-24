@@ -9,7 +9,10 @@ Se juega en https://enaminge.github.io/arena-ocaso/ desde PC, tablet, Android o 
 - **Nivel 1 · Centinela**: CENTINELA en su forma humana, con 100 de blindaje.
 - **Nivel 2 · El pulpo**: CENTINELA se transforma en un pulpo gigante con 150 de blindaje, seis tentáculos y **dos armas**, una en cada tentáculo delantero. Es más grande (más fácil de acertar) pero cubre mucho más espacio con sus disparos.
 
-- **Nivel 3 · Pulpo y araña**: dos enemigos a la vez. El pulpo (120 de blindaje) y una araña (88) con un cañón de veneno que además **lanza telarañas: si una te alcanza quedas congelado 5 segundos** (no puedes moverte ni girar, pero sí disparar a lo que tengas delante). La telaraña es lenta, se puede esquivar y los bloques la frenan. La ronda se gana al derribar a los dos.
+- **Nivel 3 · Pulpo y araña**: dos enemigos a la vez. El pulpo (120 de blindaje) y una araña (88) con un cañón de veneno que además **lanza telarañas: si una te alcanza quedas congelado 5 segundos** (no puedes moverte ni girar, pero sí disparar a lo que tengas delante). La telaraña es lenta, se puede esquivar y los bloques la frenan. La ronda se gana al derribar a los dos. La araña entra 6 s después que el pulpo y en este nivel todos los daños son un 25 % menores.
+- **Nivel 4 · El escorpión**: se juega en un **laberinto** de muros altos con puertas y pasillos sin salida. El escorpión gigante (220 de blindaje) lanza **bombas de ácido en parábola**: un círculo amarillo en el suelo marca dónde van a caer, explotan con daño en área y dejan un **charco tóxico que te envenena** mientras lo pisas. Si te escondes tras un muro, puede tirarlas por encima apuntando a donde te vio por última vez. Los enemigos buscan el camino por el laberinto.
+
+En todos los niveles aparecen **botiquines** (+35 de blindaje, también quitan el veneno).
 
 Cada nivel **solo se desbloquea ganando el anterior sin perder ninguna ronda (3–0)**, en cualquier dificultad. Una vez desbloqueado queda disponible en el menú.
 
@@ -24,6 +27,12 @@ Cada nivel **solo se desbloquea ganando el anterior sin perder ninguna ronda (3�
 | Fácil | veneno, tiro a tiro (8 de daño) | una cada 12 s aprox., lenta |
 | Medio | veneno, tiro a tiro (8 de daño) | una cada 9 s aprox. |
 | Difícil | ráfagas de 2 tiros de veneno (9 de daño) | una cada 7 s aprox., más rápida |
+
+| Dificultad | Bombas de ácido del escorpión (nivel 4) | Charco tóxico |
+|---|---|---|
+| Fácil | una cada 3 s aprox., 14 de daño | 2 m, dura 3 s, 4 de daño por segundo |
+| Medio | más seguidas, 18 de daño | 2,2 m, dura 4 s, 6 por segundo |
+| Difícil | dos seguidas, 18 de daño | 2,4 m, dura 5 s, 7 por segundo |
 
 ## Dificultad
 
@@ -48,8 +57,9 @@ En Difícil, además, CENTINELA lleva un **fusil de plasma**, mejor que tu arma:
 | Espacio | Disparar (recarga automática cada 12 tiros) |
 | A / D | Moverte de lado |
 | M | Silenciar |
+| P o Esc | Pausar / continuar |
 
-**Mando o joystick (PC y tablets)**: conéctalo por USB o Bluetooth y pulsa cualquier botón. Stick izquierdo para moverte, stick derecho o cruceta para girar, gatillo derecho, RB o A para disparar, Start para empezar y Select para silenciar. Vibra cuando te dan, si el mando lo permite.
+**Mando o joystick (PC y tablets)**: conéctalo por USB o Bluetooth y pulsa cualquier botón. Stick izquierdo para moverte, stick derecho o cruceta para girar, gatillo derecho, RB o A para disparar, Start para empezar o pausar y Select para silenciar. Vibra cuando te dan, si el mando lo permite.
 
 **Pantalla táctil (teléfonos y tablets)**: flechas a la izquierda (se puede deslizar el dedo entre ellas) y botón FUEGO a la derecha. En Android y iPad pasa a pantalla completa y en horizontal al empezar.
 

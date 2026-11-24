@@ -90,6 +90,16 @@
   .mute { position: absolute; left: calc(18px + env(safe-area-inset-left, 0px)); top: calc(16px + env(safe-area-inset-top, 0px)); pointer-events: auto;
           font: 600 11px "Chakra Petch", sans-serif; letter-spacing: .2em; color: var(--muted); background: rgba(19,17,31,.5); border: 1px solid rgba(243,234,215,.25); padding: 6px 10px; cursor: pointer; }
   .mute:focus-visible { outline: 2px solid var(--bone); outline-offset: 2px; }
+  .pausebtn { left: calc(104px + env(safe-area-inset-left, 0px)); }
+  .status { position: absolute; left: 0; right: 0; top: calc(74px + env(safe-area-inset-top, 0px)); text-align: center; font: 700 12px "Chakra Petch", sans-serif;
+            letter-spacing: .22em; color: #F5C842; text-shadow: 0 1px 4px rgba(0,0,0,.8); min-height: 1.2em; padding-inline: 16px; }
+  #poisonVig { position: fixed; inset: 0; pointer-events: none; opacity: 0;
+               background: radial-gradient(ellipse at center, rgba(200,210,40,0) 45%, rgba(190,205,30,.5) 100%); }
+  .pausebox { position: fixed; inset: 0; z-index: 6; display: grid; place-items: center; text-align: center; padding: 16px; background: rgba(19,17,31,.74); }
+  .pausebox h2 { margin: 0 0 8px; font-family: "Saira Stencil One", "Chakra Petch", sans-serif; font-weight: 400; font-size: clamp(40px, 9vw, 72px); letter-spacing: .04em; }
+  .pausebox p { margin: 0 0 18px; font-size: 15px; color: #DCD1BF; }
+  .pausebox .row { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; align-items: center; }
+  .version { margin: 0; font-size: 12px; letter-spacing: .14em; color: var(--muted); }
 
   /* ---------- Overlay ---------- */
   .overlay { position: fixed; inset: 0; display: grid; justify-items: center; padding: 16px; z-index: 5; overflow-y: auto; -webkit-overflow-scrolling: touch;
@@ -216,6 +226,8 @@
       <div class="foebar" aria-label="Blindaje de CENTINELA"><div id="foeFill"></div></div>
     </div>
     <button class="mute" id="muteBtn" type="button" aria-label="Silenciar">SONIDO</button>
+    <button class="mute pausebtn" id="pauseBtn" type="button" aria-label="Pausar">PAUSA</button>
+    <div class="status" id="statusTxt" role="status"></div>
     <canvas id="radar" width="264" height="264" aria-label="Radar"></canvas>
     <div class="cross"></div>
     <div class="hitmark" id="hitmark"></div>
@@ -233,6 +245,7 @@
   </div>
 
   <div id="vignette"></div>
+  <div id="poisonVig"></div>
   <div class="webbed" id="webbed" hidden><div class="webtxt">ATRAPADO EN LA TELARAÑA <b id="webTime">5,0 s</b></div></div>
 
   <div class="touch" id="touch">
@@ -263,6 +276,7 @@
           <input type="radio" name="level" id="level-1" value="1" checked><label for="level-1">1 · Centinela</label>
           <input type="radio" name="level" id="level-2" value="2"><label for="level-2">2 · El pulpo</label>
           <input type="radio" name="level" id="level-3" value="3"><label for="level-3">3 · Pulpo y araña</label>
+          <input type="radio" name="level" id="level-4" value="4"><label for="level-4">4 · Escorpión</label>
         </div>
         <p class="diffnote" id="levelNote"></p>
       </fieldset>
@@ -298,6 +312,18 @@
         <button class="go" id="nextLevelBtn" type="button" hidden>Nivel 2: el pulpo ↵</button>
         <button class="go" id="goBtn" type="button">Entrar a la arena ↵</button>
         <button class="install" id="installBtn" type="button" hidden>Instalar app</button>
+      </div>
+      <p class="version">Versión 1.0.1</p>
+    </div>
+  </div>
+
+  <div class="pausebox" id="pauseBox" hidden>
+    <div>
+      <h2>Pausa</h2>
+      <p>El juego está detenido. Pulsa P, Esc o Start para seguir.</p>
+      <div class="row">
+        <button class="go" id="resumeBtn" type="button">Continuar</button>
+        <button class="install" id="quitBtn" type="button">Salir al menú</button>
       </div>
     </div>
   </div>

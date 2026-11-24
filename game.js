@@ -15,17 +15,20 @@
     human:  { name: 'CENTINELA', hp: 100, hitY: 1.45, hitR: 0.95, radius: 0.75, speedMul: 1,    dot: '#E0304A' },
     octo:   { name: 'PULPO',     hp: 150, hitY: 1.85, hitR: 1.3,  radius: 1.15, speedMul: 0.9,  dot: '#FF6FB0' },
     spider: { name: 'ARAÑA',     hp: 110, hitY: 1.25, hitR: 1.15, radius: 1.1,  speedMul: 1.15, dot: '#9CFF3A' },
+    scorpion: { name: 'ESCORPIÓN', hp: 220, hitY: 1.2, hitR: 1.5,  radius: 1.35, speedMul: 0.95, dot: '#F5C842' },
   };
-  // Level 3 fights two foes at once, so each one gets a little less armour.
+  // Level 3 fights two foes at once: a little less armour each, 25 % less damage, and the
+  // spider joins 6 s after the octopus. Level 4 is played in the maze layout.
   const LEVELS = {
     1: { foes: ['human'],          hpMul: 1,   label: 'CENTINELA', the: 'CENTINELA',           down: 'CENTINELA DERRIBADO' },
     2: { foes: ['octo'],           hpMul: 1,   label: 'PULPO',     the: 'EL PULPO',            down: 'PULPO DERRIBADO' },
-    3: { foes: ['octo', 'spider'], hpMul: 0.8, label: 'PULPO · ARAÑA', the: 'EL PULPO Y LA ARAÑA', down: 'PULPO Y ARAÑA DERRIBADOS' },
+    3: { foes: ['octo', 'spider'], hpMul: 0.8, label: 'PULPO · ARAÑA', the: 'EL PULPO Y LA ARAÑA', down: 'PULPO Y ARAÑA DERRIBADOS', dmgMul: 0.75, delays: [0, 6] },
+    4: { foes: ['scorpion'],       hpMul: 1,   label: 'ESCORPIÓN', the: 'EL ESCORPIÓN',         down: 'ESCORPIÓN DERRIBADO', layout: 'maze' },
   };
-  const MAX_LEVEL = 3;
+  const MAX_LEVEL = 4;
   let level = 1;
   const lvl = () => LEVELS[level];
-  const OBST = [
+  const ARENA_LAYOUT = [
     { x: 0,   z: 0,   w: 6,   d: 6,   h: 3.4 },
     { x: -14, z: -12, w: 4,   d: 8,   h: 2.6 },
     { x: 14,  z: 12,  w: 4,   d: 8,   h: 2.6 },
@@ -40,6 +43,22 @@
     { x: 0,   z: 13,  w: 5,   d: 1.2, h: 1.1 },
     { x: 0,   z: -13, w: 5,   d: 1.2, h: 1.1 },
   ];
+  // Level 4 maze: two rings of tall walls with doorways, dead ends in the outer corridor and low cover.
+  const MAZE_LAYOUT = [
+    { x: -12, z: -20, w: 16, d: 1, h: 3.2 }, { x: 12, z: -20, w: 16, d: 1, h: 3.2 },
+    { x: -14, z: 20, w: 12, d: 1, h: 3.2 }, { x: 0, z: 20, w: 6, d: 1, h: 3.2 }, { x: 14, z: 20, w: 12, d: 1, h: 3.2 },
+    { x: -20, z: -12, w: 1, d: 16, h: 3.2 }, { x: -20, z: 12, w: 1, d: 16, h: 3.2 },
+    { x: 20, z: -7, w: 1, d: 26, h: 3.2 }, { x: 20, z: 16, w: 1, d: 8, h: 3.2 },
+    { x: -3.5, z: -10, w: 13, d: 1, h: 3.2 }, { x: 9, z: -10, w: 2, d: 1, h: 3.2 },
+    { x: -9, z: 10, w: 2, d: 1, h: 3.2 }, { x: 3.5, z: 10, w: 13, d: 1, h: 3.2 },
+    { x: -10, z: 0, w: 1, d: 21, h: 3.2 },
+    { x: 10, z: -6.5, w: 1, d: 7, h: 3.2 }, { x: 10, z: 6.5, w: 1, d: 7, h: 3.2 },
+    { x: -25, z: -8, w: 9, d: 1, h: 3.2 }, { x: 25, z: 3, w: 9, d: 1, h: 3.2 },
+    { x: 8, z: 25, w: 1, d: 9, h: 3.2 }, { x: -8, z: -25, w: 1, d: 9, h: 3.2 },
+    { x: 0, z: 0, w: 4, d: 1.2, h: 1.1 }, { x: -15, z: 0, w: 1.2, d: 4, h: 1.1 }, { x: 15, z: -12, w: 4, d: 1.2, h: 1.1 },
+  ];
+  const LAYOUTS = { arena: ARENA_LAYOUT, maze: MAZE_LAYOUT };
+  let OBST = ARENA_LAYOUT;
   // Difficulty scales CENTINELA's speed first, then reaction, aim, fire rate and damage.
   const DIFFS = {
     facil:   { name: 'Fácil',   speed: 0.72, fire: 1.4,  spread: 1.5, react: 1.6, dmg: 9,
@@ -60,6 +79,17 @@
     // Spider (level 3): venom cannon
     venom:      { speed: 24, burst: 1, gap: 0,    cdMul: 1.1, dmg: 8, core: 0xE8FFC8, glow: 0x6AD010, size: 1.0, radar: '#9CFF3A', sound: 'venom' },
     venomBurst: { speed: 32, burst: 2, gap: 0.12, cdMul: 1.5, dmg: 9, core: 0xE8FFC8, glow: 0x6AD010, size: 1.0, radar: '#9CFF3A', sound: 'venom' },
+    // Scorpion (level 4): acid bombs lobbed in an arc; splash damage plus a toxic puddle
+    acid:      { lob: true, speed: 0, burst: 1, gap: 0,    cdMul: 2.2, dmg: 14, splash: 2.6, puddle: { r: 2.0, t: 3, dps: 4 }, core: 0xFFF2A0, glow: 0xF0B020, size: 1.4, radar: '#F5C842', sound: 'acid' },
+    acidMid:   { lob: true, speed: 0, burst: 1, gap: 0,    cdMul: 1.9, dmg: 18, splash: 2.8, puddle: { r: 2.2, t: 4, dps: 6 }, core: 0xFFF2A0, glow: 0xF0B020, size: 1.4, radar: '#F5C842', sound: 'acid' },
+    acidBurst: { lob: true, speed: 0, burst: 2, gap: 0.35, cdMul: 2.0, dmg: 18, splash: 2.8, puddle: { r: 2.4, t: 5, dps: 7 }, core: 0xFFF2A0, glow: 0xF0B020, size: 1.4, radar: '#F5C842', sound: 'acid' },
+  };
+  const SCORP_WEAPON = { facil: 'acid', medio: 'acidMid', dificil: 'acidBurst' };
+  const GRAV = 16;
+  const L4_NOTES = {
+    facil: 'El escorpión lanza una bomba de ácido cada 3 s aprox. Mira el círculo en el suelo y sal de ahí.',
+    medio: 'Bombas de ácido más seguidas y charcos tóxicos más grandes. No te quedes quieto en el pasillo.',
+    dificil: 'Lanza dos bombas seguidas y sus charcos duran 5 s. Puede tirarlas por encima de los muros.',
   };
   const SPIDER_WEAPON = { facil: 'venom', medio: 'venom', dificil: 'venomBurst' };
   // Spider web: seconds between throws and projectile speed; a hit freezes the player
@@ -76,7 +106,8 @@
     medio: 'El pulpo dispara tinta con sus dos armas a la vez.',
     dificil: 'El pulpo es rápido, apunta mejor y dispara ráfagas de plasma con sus dos armas a la vez.',
   };
-  const weaponKeyFor = (kind) => (kind === 'octo' ? OCTO_WEAPON[difficulty] : kind === 'spider' ? SPIDER_WEAPON[difficulty] : (DIFFS[difficulty].weapon || 'rifle'));
+  const weaponKeyFor = (kind) => (kind === 'octo' ? OCTO_WEAPON[difficulty] : kind === 'spider' ? SPIDER_WEAPON[difficulty]
+    : kind === 'scorpion' ? SCORP_WEAPON[difficulty] : (DIFFS[difficulty].weapon || 'rifle'));
   const weaponKey = () => weaponKeyFor(lvl().foes[0]);
   const weapon = () => WEAPONS[weaponKey()];
   let difficulty = 'medio';
@@ -183,14 +214,83 @@
   outer.rotation.x = -Math.PI / 2; outer.position.y = -0.02; scene.add(outer);
 
   const concreteMat = new THREE.MeshStandardMaterial({ map: concreteTex, roughness: 0.9 });
+  const mazeMat = new THREE.MeshStandardMaterial({ map: concreteTex, color: 0xA898B0, roughness: 0.9 });
   const lowMat = new THREE.MeshStandardMaterial({ color: 0x5B4A5C, roughness: 0.8 });
   const stripeMat = new THREE.MeshStandardMaterial({ color: 0xE47B4C, roughness: 0.6 });
-  for (const o of OBST) {
-    const low = o.h < 1.5;
-    const m = new THREE.Mesh(new THREE.BoxGeometry(o.w, o.h, o.d), low ? lowMat : concreteMat);
-    m.position.set(o.x, o.h / 2, o.z); m.castShadow = m.receiveShadow = true;
-    scene.add(m); solids.push(m); coverMeshes.push(m);
-    if (low) { const cap = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.04, 0.08, o.d + 0.04), stripeMat); cap.position.set(o.x, o.h, o.z); scene.add(cap); }
+  // Obstacles are rebuilt whenever the level switches layout (arena <-> maze)
+  const layoutMeshes = [];
+  let layoutName = '';
+  let navCache = {};
+  function buildLayout(name) {
+    if (name === layoutName) return;
+    layoutName = name;
+    for (const m of layoutMeshes) {
+      scene.remove(m); m.geometry.dispose();
+      const i = solids.indexOf(m); if (i >= 0) solids.splice(i, 1);
+      const j = coverMeshes.indexOf(m); if (j >= 0) coverMeshes.splice(j, 1);
+    }
+    layoutMeshes.length = 0;
+    OBST = LAYOUTS[name];
+    navCache = {};
+    for (const o of OBST) {
+      const low = o.h < 1.5;
+      const m = new THREE.Mesh(new THREE.BoxGeometry(o.w, o.h, o.d), low ? lowMat : name === 'maze' ? mazeMat : concreteMat);
+      m.position.set(o.x, o.h / 2, o.z); m.castShadow = m.receiveShadow = true;
+      scene.add(m); solids.push(m); coverMeshes.push(m); layoutMeshes.push(m);
+      if (low) {
+        const cap = new THREE.Mesh(new THREE.BoxGeometry(o.w + 0.04, 0.08, o.d + 0.04), stripeMat);
+        cap.position.set(o.x, o.h, o.z); scene.add(cap); layoutMeshes.push(cap);
+      }
+    }
+  }
+  buildLayout('arena');
+
+  // ---- Navigation: 1 m grid over the arena, so foes can walk around walls (essential in the maze)
+  const NAV_N = ARENA * 2;
+  const NAV_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  function navGrid(radius) {
+    const key = layoutName + ':' + radius;
+    if (navCache[key]) return navCache[key];
+    const g = new Uint8Array(NAV_N * NAV_N), r = radius + 0.15;
+    for (let i = 0; i < NAV_N; i++) for (let j = 0; j < NAV_N; j++) {
+      const x = -ARENA + i + 0.5, z = -ARENA + j + 0.5;
+      let blocked = Math.abs(x) > ARENA - r || Math.abs(z) > ARENA - r;
+      for (let k = 0; k < OBST.length && !blocked; k++) {
+        const o = OBST[k];
+        const dx = Math.max(Math.abs(x - o.x) - o.w / 2, 0), dz = Math.max(Math.abs(z - o.z) - o.d / 2, 0);
+        if (dx * dx + dz * dz < r * r) blocked = true;
+      }
+      g[i * NAV_N + j] = blocked ? 1 : 0;
+    }
+    return (navCache[key] = g);
+  }
+  const navCell = (v) => [Math.max(0, Math.min(NAV_N - 1, Math.floor(v.x + ARENA))), Math.max(0, Math.min(NAV_N - 1, Math.floor(v.z + ARENA)))];
+  // Breadth-first search; if the goal can't be reached, heads for the closest reachable cell.
+  function findPath(from, to, radius) {
+    const g = navGrid(radius), N = NAV_N;
+    const [si, sj] = navCell(from), [gi, gj] = navCell(to);
+    const start = si * N + sj, goal = gi * N + gj;
+    const prev = new Int32Array(N * N).fill(-1), q = new Int32Array(N * N);
+    let qh = 0, qt = 0, best = start, bestD = Infinity;
+    q[qt++] = start; prev[start] = start;
+    while (qh < qt) {
+      const c = q[qh++], ci = (c / N) | 0, cj = c % N;
+      const dd = Math.abs(ci - gi) + Math.abs(cj - gj);
+      if (dd < bestD) { bestD = dd; best = c; }
+      if (c === goal) break;
+      for (const [di, dj] of NAV_DIRS) {
+        const ni = ci + di, nj = cj + dj;
+        if (ni < 0 || nj < 0 || ni >= N || nj >= N) continue;
+        const n = ni * N + nj;
+        if (prev[n] !== -1 || g[n]) continue;
+        if (di && dj && (g[ci * N + nj] || g[ni * N + cj])) continue; // no corner cutting
+        prev[n] = c; q[qt++] = n;
+      }
+    }
+    const pts = [];
+    for (let c = best; c !== start && pts.length < N * N; c = prev[c]) pts.push(c);
+    pts.reverse();
+    return pts.map((c) => new V3(-ARENA + ((c / N) | 0) + 0.5, 0, -ARENA + (c % N) + 0.5));
   }
   const wallMat = new THREE.MeshStandardMaterial({ map: wallTex, roughness: 0.9 });
   [[0, -ARENA - 0.5, ARENA * 2 + 2, 1], [0, ARENA + 0.5, ARENA * 2 + 2, 1], [-ARENA - 0.5, 0, 1, ARENA * 2 + 2], [ARENA + 0.5, 0, 1, ARENA * 2 + 2]].forEach(([x, z, w, d]) => {
@@ -512,7 +612,87 @@
   poseSpider(0, 0);
   spiderGroup.visible = false;
   scene.add(spiderGroup);
-  const GROUPS = { human: botGroup, octo: octoGroup, spider: spiderGroup };
+  // ---- Level 4: CENTINELA as a giant scorpion. Acid sting on an arched tail, cap and eyepatch kept.
+  const scorpGroup = new THREE.Group();
+  const scorpShell = new THREE.MeshStandardMaterial({
+    roughness: 0.4, metalness: 0.25, emissive: 0x000000,
+    map: canvasTex(256, (g, sz) => {
+      g.fillStyle = '#3A2616'; g.fillRect(0, 0, sz, sz);
+      for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? 'rgba(140,95,45,.5)' : 'rgba(15,8,4,.45)'; g.fillRect(0, i * sz / 8, sz, sz / 16); }
+      g.fillStyle = 'rgba(255,220,150,.07)';
+      for (let i = 0; i < 700; i++) g.fillRect(Math.random() * sz, Math.random() * sz, 2, 2);
+    }),
+  });
+  const acidGlow = new THREE.MeshStandardMaterial({ color: 0xF0B020, emissive: 0xF0B020, emissiveIntensity: 1.4 });
+  (function buildScorpion() {
+    const add = (parent, geo, mat, x, y, z, rx, ry, rz) => {
+      const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.rotation.set(rx || 0, ry || 0, rz || 0);
+      m.castShadow = true; parent.add(m); return m;
+    };
+    const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
+    const limb = (parent, a, b, r1, r2) => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(r2, r1, 1, 10), scorpShell); m.castShadow = true; parent.add(m);
+      setLimb(m, a, b); return m;
+    };
+    // Segmented body and armoured back plates (front = -z)
+    [-0.6, 0.2, 1.0].forEach((z, i) => add(scorpGroup, new THREE.SphereGeometry(0.85 - i * 0.08, 22, 14), scorpShell, 0, 0.95, z).scale.set(1.15, 0.5, 0.75));
+    for (let i = 0; i < 4; i++) add(scorpGroup, box(1.3 - i * 0.12, 0.08, 0.32), botDark, 0, 1.36, -0.5 + i * 0.45);
+    // Head: one glowing eye, the other under the eyepatch, officer cap
+    add(scorpGroup, new THREE.SphereGeometry(0.5, 18, 12), scorpShell, 0, 1.0, -1.3).scale.set(1.15, 0.6, 0.8);
+    const eyeMat = new THREE.MeshStandardMaterial({ color: 0xFF2030, emissive: 0xFF1020, emissiveIntensity: 1.5 });
+    add(scorpGroup, new THREE.SphereGeometry(0.09, 12, 10), eyeMat, 0.18, 1.16, -1.66);
+    add(scorpGroup, new THREE.CylinderGeometry(0.12, 0.12, 0.03, 16), botDark, -0.18, 1.16, -1.67, Math.PI / 2);
+    add(scorpGroup, new THREE.CylinderGeometry(0.3, 0.34, 0.16, 20), botDark, 0, 1.38, -1.25);
+    add(scorpGroup, box(0.38, 0.025, 0.18), botDark, 0, 1.31, -1.55, 0.25);
+    add(scorpGroup, box(0.08, 0.08, 0.02), botRed, 0, 1.41, -1.58);
+    // Pincers
+    const claws = [];
+    for (const sx of [-1, 1]) {
+      const a = new V3(sx * 0.7, 0.95, -1.2), b = new V3(sx * 1.35, 1.0, -1.8), c = new V3(sx * 1.1, 1.0, -2.45);
+      limb(scorpGroup, a, b, 0.16, 0.13); limb(scorpGroup, b, c, 0.13, 0.11);
+      const claw = new THREE.Group(); claw.position.copy(c); scorpGroup.add(claw);
+      const j1 = add(claw, box(0.2, 0.16, 0.6), scorpShell, sx * 0.1, 0, -0.25, 0, sx * 0.2, 0);
+      const j2 = add(claw, box(0.14, 0.12, 0.5), scorpShell, -sx * 0.12, 0, -0.22, 0, -sx * 0.2, 0);
+      claws.push({ j1, j2, sx });
+    }
+    // Eight legs, re-posed every frame
+    const legs = [];
+    [-0.7, -0.3, 0.1, 0.5].forEach((z, i) => {
+      for (const sx of [-1, 1]) {
+        const upper = limb(scorpGroup, new V3(0, 0, 0), new V3(0, 1, 0), 0.08, 0.06);
+        const lower = limb(scorpGroup, new V3(0, 0, 0), new V3(0, 1, 0), 0.06, 0.03);
+        legs.push({ sx, z, upper, lower, phase: i * 1.3 + (sx > 0 ? Math.PI : 0) });
+      }
+    });
+    // Tail: an arc of shrinking segments rising from the rear and curling forward over the back
+    const tail = new THREE.Group(); tail.position.set(0, 0.95, 1.4); scorpGroup.add(tail);
+    const C = new V3(0, 1.05, -0.1), R = 1.3;
+    const at = (th) => new V3(0, C.y + R * Math.sin(th), C.z + R * Math.cos(th));
+    for (let i = 0; i < 7; i++) {
+      const th = -1.3 + i * (3.6 / 6);
+      const p = at(th);
+      add(tail, new THREE.SphereGeometry(0.3 - i * 0.022, 14, 10), scorpShell, p.x, p.y, p.z);
+    }
+    const bulb = at(2.45);
+    add(tail, new THREE.SphereGeometry(0.24, 16, 12), acidGlow, bulb.x, bulb.y, bulb.z);
+    add(tail, new THREE.ConeGeometry(0.08, 0.42, 10), botDark, bulb.x, bulb.y - 0.12, bulb.z - 0.26, -2.2);
+    const tip = glowSprite(0xF0B020, 0.7); tip.position.copy(bulb); tail.add(tip);
+    const light = new THREE.PointLight(0xF0B020, 1.0, 7, 2); light.position.set(0, 2.6, 0); scorpGroup.add(light);
+    scorpGroup.userData = { legs, claws, tail };
+  })();
+  function poseScorpion(walk, amp) {
+    for (const L of scorpGroup.userData.legs) {
+      const ph = walk + L.phase, lift = Math.max(0, Math.cos(ph));
+      const hip = new V3(L.sx * 0.75, 0.85, L.z);
+      const knee = new V3(L.sx * 1.45, 1.25 + lift * 0.12 * amp, L.z * 1.2 + Math.sin(ph) * 0.12 * amp);
+      const foot = new V3(L.sx * 1.95, lift * 0.15 * amp, L.z * 1.5 + Math.sin(ph) * 0.25 * amp);
+      setLimb(L.upper, hip, knee); setLimb(L.lower, knee, foot);
+    }
+  }
+  poseScorpion(0, 0);
+  scorpGroup.visible = false;
+  scene.add(scorpGroup);
+  const GROUPS = { human: botGroup, octo: octoGroup, spider: spiderGroup, scorpion: scorpGroup };
   const webTex = canvasTex(128, (g, sz) => {
     const c = sz / 2;
     g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 2;
@@ -547,14 +727,16 @@
   camera.add(gun);
 
   // ================= State =================
-  const player = { pos: new V3(0, 0, 24), vel: new V3(), yaw: 0, hp: 100, alive: true, fireCd: 0, ammo: MAG, reload: 0, turnHold: 0, bob: 0, recoil: 0 };
+  const player = { pos: new V3(0, 0, 24), vel: new V3(), yaw: 0, hp: 100, alive: true, fireCd: 0, ammo: MAG, reload: 0, turnHold: 0, bob: 0, recoil: 0,
+                   frozen: 0, poisonT: 0, poisonDps: 0 };
   function makeFoe(kind) {
     return { kind, pos: new V3(), vel: new V3(), yaw: Math.PI, faceYaw: Math.PI, hp: 100, maxHp: 100, alive: true, fireCd: 1.5, sees: false, losT: 0,
              hunting: false, lastSeen: new V3(), wander: new V3(), strafeDir: 1, strafeT: 1, stuck: 0, reaction: 0, flash: 0, gunSide: 1,
-             burstLeft: 0, burstT: 0, webCd: 4, walk: 0 };
+             burstLeft: 0, burstT: 0, webCd: 4, walk: 0, delay: 0, lobCd: 2, path: null, pathI: 0, pathT: 0, pathTgt: new V3(), tailKick: 0 };
   }
   let foes = [makeFoe('human')];
   let state = 'menu';           // menu | playing | roundEnd | matchEnd
+  let paused = false;
   let round = 1, score = { p: 0, b: 0 }, roundTimer = 0, shake = 0, hurt = 0, hitT = 0, time = 0, matchTime = 0;
 
   // ================= Collision helpers =================
@@ -595,7 +777,7 @@
     f.wander.set(rand(-20, 20), 0, rand(-20, 20)); resolve(f.wander, 1.2);
   }
   // Builds this level's foes, either for a round or patrolling behind the menu
-  const SPAWNS = { 1: [[0, -24]], 2: [[0, -24]], 3: [[-9, -24], [9, -24]] };
+  const SPAWNS = { 1: [[0, -24]], 2: [[0, -24]], 3: [[-9, -24], [9, -24]], 4: [[0, -25]] };
   function setupFoes(menu) {
     foes = lvl().foes.map((k, i) => {
       const f = makeFoe(k);
@@ -604,6 +786,7 @@
       f.maxHp = f.hp = Math.round(KINDS[k].hp * lvl().hpMul);
       f.fireCd = 1.6 + i * 0.6;
       f.webCd = WEB[difficulty].cd * 0.5;
+      f.delay = menu ? 0 : ((lvl().delays || [])[i] || 0);
       pickWander(f);
       return f;
     });
@@ -638,7 +821,8 @@
   function clearFx() {
     for (const p of particles) scene.remove(p.m); particles.length = 0;
     for (const t of tracers) scene.remove(t.m); tracers.length = 0;
-    for (const b of bullets) scene.remove(b.g); bullets.length = 0;
+    for (const b of bullets) { scene.remove(b.g); if (b.marker) scene.remove(b.marker); } bullets.length = 0;
+    for (const pd of puddles) scene.remove(pd.m); puddles.length = 0;
   }
 
   // ================= Audio =================
@@ -675,6 +859,9 @@
     venom: (vol) => { tone(950, 280, 0.12, 'triangle', 0.14 * vol); noise(0.1, 2600, 0.12 * vol); },
     webShot: (vol) => { noise(0.35, 900, 0.3 * vol); tone(220, 110, 0.3, 'sine', 0.12 * vol); },
     webHit: () => { noise(0.5, 1400, 0.5); tone(160, 60, 0.45, 'triangle', 0.35); },
+    acid: (vol) => { tone(240, 520, 0.25, 'sine', 0.18 * vol); noise(0.2, 1200, 0.14 * vol); },
+    splash: (vol) => { noise(0.45, 900, 0.45 * vol); tone(170, 60, 0.35, 'sine', 0.22 * vol); },
+    heal: () => { tone(520, 880, 0.16, 'triangle', 0.2); setTimeout(() => tone(880, 1320, 0.2, 'triangle', 0.18), 110); },
     plasma: (vol) => { tone(1800, 320, 0.14, 'sawtooth', 0.07 * vol); tone(520, 140, 0.12, 'square', 0.05 * vol); },
     hit: () => tone(1500, 2100, 0.06, 'sine', 0.22),
     hurt: () => { noise(0.22, 600, 0.6); tone(130, 45, 0.22, 'sine', 0.5); },
@@ -696,6 +883,10 @@
   const isFormField = (t) => !!(t && t.closest && t.closest('input, textarea, select'));
   window.addEventListener('keydown', (e) => {
     if (isFormField(e.target)) return;
+    if ((e.code === 'KeyP' || e.code === 'Escape') && !e.repeat && (paused || state === 'playing' || state === 'roundEnd')) {
+      e.preventDefault(); setPaused(!paused); return;
+    }
+    if (paused) return;
     const a = KEYMAP[e.code];
     if (inMenu() && (e.code === 'Enter' || e.code === 'Space')) {
       if (e.target && e.target.closest && e.target.closest('button, a')) return; // let the focused control activate
@@ -796,6 +987,7 @@
     gpad.fire = btn(7) || btn(5) || btn(0);
     const startPressed = edge(9), aPressed = edge(0), selectPressed = edge(8);
     if (inMenu() && (startPressed || aPressed)) startMatch();
+    else if (startPressed && (paused || state === 'playing' || state === 'roundEnd')) setPaused(!paused);
     if (selectPressed) setMuted(!muted);
   }
   function rumble(strength, ms) {
@@ -824,13 +1016,13 @@
     if (!DIFFS[d]) d = 'medio';
     difficulty = d;
     diffRadios.forEach((r) => { r.checked = r.value === d; });
-    $('diffNote').textContent = level === 3 ? L3_NOTES[d] : level === 2 ? OCTO_NOTES[d] : DIFFS[d].note;
+    $('diffNote').textContent = level === 4 ? L4_NOTES[d] : level === 3 ? L3_NOTES[d] : level === 2 ? OCTO_NOTES[d] : DIFFS[d].note;
     applyLoadout();
   }
 
   // ---- Level selector: each level unlocks only after winning every round of the previous one (3–0)
   const levelRadios = [...document.querySelectorAll('input[name="level"]')];
-  const unlockedUpTo = () => (store.get('arena-l3') === '1' ? 3 : store.get('arena-l2') === '1' ? 2 : 1);
+  const unlockedUpTo = () => (store.get('arena-l4') === '1' ? 4 : store.get('arena-l3') === '1' ? 3 : store.get('arena-l2') === '1' ? 2 : 1);
   const savedLevel = () => Math.min(unlockedUpTo(), Math.max(1, +store.get('arena-level') || 1));
   function syncLevelLock() {
     levelRadios.forEach((r) => { r.disabled = !!challenge || +r.value > unlockedUpTo(); });
@@ -839,6 +1031,7 @@
     1: 'CENTINELA en su forma humana.',
     2: 'CENTINELA se transforma en un pulpo gigante con 150 de blindaje que dispara con dos armas.',
     3: 'Dos enemigos a la vez: el pulpo y una araña con cañón de veneno que además lanza telarañas que te congelan 5 segundos.',
+    4: 'Un laberinto de muros altos y un escorpión gigante con 220 de blindaje que lanza bombas de ácido por encima de los muros.',
   };
   function setLevel(l) {
     level = l >= 1 && l <= MAX_LEVEL ? l : 1;
@@ -846,6 +1039,7 @@
     const next = unlockedUpTo() + 1;
     $('levelNote').textContent = LEVEL_NOTES[level] + (next <= MAX_LEVEL
       ? ' Para desbloquear el nivel ' + next + ' gana el nivel ' + (next - 1) + ' sin perder ninguna ronda: 3–0.' : '');
+    buildLayout(lvl().layout || 'arena');
     if (state === 'menu' || state === 'matchEnd') setupFoes(true);
     setDifficulty(difficulty);
   }
@@ -858,13 +1052,13 @@
       const q = new URLSearchParams(location.search);
       if (!q.has('reto')) return null;
       const d = q.get('d'), p = +q.get('p'), b = +q.get('b'), t = +q.get('t'), l = +(q.get('l') || 1);
-      if (!(l === 1 || l === 2 || l === 3) || !DIFFS[d] || !(p >= 0 && p <= WIN) || !(b >= 0 && b <= WIN) || (p !== WIN && b !== WIN) || p === b || !(t > 0 && t < 36000)) return null;
+      if (!(l >= 1 && l <= MAX_LEVEL && Number.isInteger(l)) || !DIFFS[d] || !(p >= 0 && p <= WIN) || !(b >= 0 && b <= WIN) || (p !== WIN && b !== WIN) || p === b || !(t > 0 && t < 36000)) return null;
       const n = (q.get('n') || '').replace(/[^\p{L}\p{N} ._-]/gu, '').trim().slice(0, 16);
       return { d, l, p, b, t: Math.round(t), n: n || 'Tu amigo' };
     } catch (e) { return null; }
   }
-  const FOE_A = { 1: 'a CENTINELA', 2: 'al pulpo', 3: 'al pulpo y la araña' };
-  const FOE_VS = { 1: 'contra CENTINELA', 2: 'contra el pulpo', 3: 'contra el pulpo y la araña' };
+  const FOE_A = { 1: 'a CENTINELA', 2: 'al pulpo', 3: 'al pulpo y la araña', 4: 'al escorpión' };
+  const FOE_VS = { 1: 'contra CENTINELA', 2: 'contra el pulpo', 3: 'contra el pulpo y la araña', 4: 'contra el escorpión' };
   const describe = (r) => (r.p > r.b ? 'Le ganó ' + r.p + '–' + r.b + ' ' + FOE_A[r.l] : 'Perdió ' + r.p + '–' + r.b + ' ' + FOE_VS[r.l])
     + ' en ' + DIFFS[r.d].name + (r.l > 1 ? ' (nivel ' + r.l + ')' : '') + ', en ' + fmtTime(r.t) + '.';
   // Higher is better: a win beats a loss, then round margin, then a faster time.
@@ -906,7 +1100,7 @@
     const r = lastResult, where = DIFFS[r.d].name + (r.l > 1 ? ', nivel ' + r.l : '');
     return r.p > r.b
       ? 'Le gané ' + r.p + '–' + r.b + ' ' + FOE_A[r.l] + ' en Arena Ocaso (' + where + ', ' + fmtTime(r.t) + '). ¿Me superas?'
-      : { 1: 'CENTINELA me ganó', 2: 'El pulpo me ganó', 3: 'El pulpo y la araña me ganaron' }[r.l] + ' ' + r.p + '–' + r.b + ' en Arena Ocaso (' + where + '). ¿Tú puedes hacerlo mejor?';
+      : { 1: 'CENTINELA me ganó', 2: 'El pulpo me ganó', 3: 'El pulpo y la araña me ganaron', 4: 'El escorpión me ganó' }[r.l] + ' ' + r.p + '–' + r.b + ' en Arena Ocaso (' + where + '). ¿Tú puedes hacerlo mejor?';
   }
   function refreshShare() {
     if (!lastResult) return;
@@ -935,6 +1129,32 @@
   renderChallenge();
   $('nextLevelBtn').addEventListener('click', () => { setLevel(Math.min(MAX_LEVEL, level + 1)); store.set('arena-level', String(level)); startMatch(); });
 
+  // ---- Pause: P / Esc / Start / on-screen button; also when the app goes to the background
+  const MENU_TEXT = { kicker: $('kicker').textContent, title: $('title').innerHTML, lede: $('lede').textContent };
+  function setPaused(p) {
+    if (p && state !== 'playing' && state !== 'roundEnd') return;
+    paused = p;
+    $('pauseBox').hidden = !p;
+    for (const k in keys) keys[k] = false;
+    firePressed = false;
+    if (p) $('resumeBtn').focus({ preventScroll: true });
+  }
+  function showMenu() {
+    paused = false; $('pauseBox').hidden = true;
+    state = 'menu'; clearFx(); clearMedkits();
+    player.frozen = 0; player.poisonT = 0;
+    $('hud').hidden = true; gun.visible = false; webbed.hidden = true;
+    $('kicker').textContent = MENU_TEXT.kicker; $('title').innerHTML = MENU_TEXT.title; $('lede').textContent = MENU_TEXT.lede;
+    $('result').hidden = true; $('verdict').hidden = true; $('shareBox').hidden = true; $('nextLevelBtn').hidden = true;
+    $('keys').hidden = false; $('extra').hidden = false; $('goBtn').textContent = 'Entrar a la arena ↵';
+    $('overlay').hidden = false;
+    setupFoes(true);
+  }
+  $('pauseBtn').addEventListener('click', (e) => { e.currentTarget.blur(); setPaused(true); });
+  $('resumeBtn').addEventListener('click', () => setPaused(false));
+  $('quitBtn').addEventListener('click', showMenu);
+  document.addEventListener('visibilitychange', () => { if (document.hidden && (state === 'playing' || state === 'roundEnd')) setPaused(true); });
+
   // ---- Install as an app (Android Chrome offers this once the PWA criteria are met)
   let installPrompt = null;
   const installBtn = $('installBtn');
@@ -953,7 +1173,9 @@
   // ================= HUD =================
   const hpFill = $('hpFill'), hpNum = $('hpNum'), foeFill = $('foeFill'), ammoNum = $('ammoNum'), ammoState = $('ammoState');
   const banner = $('banner'), hitmark = $('hitmark'), vignette = $('vignette');
-  const webbed = $('webbed'), webTime = $('webTime');
+  const webbed = $('webbed'), webTime = $('webTime'), statusTxt = $('statusTxt'), poisonVig = $('poisonVig');
+  let statusMsg = '', statusT = 0;
+  const flashStatus = (msg, s) => { statusMsg = msg; statusT = s; };
   // Full-screen spider web drawn as SVG, shown while the player is frozen
   (function drawWebOverlay() {
     const cx = 500, cy = 300, n = 14; let d = '';
@@ -989,6 +1211,9 @@
     ammoState.textContent = player.reload > 0 ? 'RECARGANDO…' : '';
     hitmark.classList.toggle('show', hitT > 0);
     vignette.style.opacity = Math.min(1, hurt).toFixed(3);
+    const poisoned = player.poisonT > 0;
+    poisonVig.style.opacity = poisoned ? (0.55 + 0.2 * Math.sin(time * 8)).toFixed(3) : '0';
+    statusTxt.textContent = poisoned ? 'ENVENENADO · SAL DEL ÁCIDO' : statusT > 0 ? statusMsg : '';
   }
 
   // Radar
@@ -1013,6 +1238,10 @@
       rg.beginPath(); rg.arc(f.pos.x, f.pos.z, 1.3, 0, Math.PI * 2); rg.fill();
     }
     for (const bl of bullets) { rg.fillStyle = bl.radar; rg.fillRect(bl.g.position.x - 0.35, bl.g.position.z - 0.35, 0.7, 0.7); }
+    rg.fillStyle = 'rgba(200,210,40,.45)';
+    for (const pd of puddles) { rg.beginPath(); rg.arc(pd.x, pd.z, pd.r, 0, Math.PI * 2); rg.fill(); }
+    rg.fillStyle = '#F3EAD7';
+    for (const mk of medkits) { rg.fillRect(mk.g.position.x - 0.25, mk.g.position.z - 0.9, 0.5, 1.8); rg.fillRect(mk.g.position.x - 0.9, mk.g.position.z - 0.25, 1.8, 0.5); }
     rg.setTransform(1, 0, 0, 1, 0, 0);
     rg.fillStyle = '#8FE3F0'; rg.beginPath(); rg.moveTo(c, c - 11); rg.lineTo(c + 8, c + 8); rg.lineTo(c, c + 3); rg.lineTo(c - 8, c + 8); rg.closePath(); rg.fill();
     rg.restore();
@@ -1021,16 +1250,18 @@
   // ================= Match flow =================
   function resetRound() {
     clearFx();
-    Object.assign(player, { hp: 100, alive: true, fireCd: 0.3, ammo: MAG, reload: 0, yaw: 0, turnHold: 0, recoil: 0, frozen: 0 });
+    Object.assign(player, { hp: 100, alive: true, fireCd: 0.3, ammo: MAG, reload: 0, yaw: 0, turnHold: 0, recoil: 0, frozen: 0, poisonT: 0 });
     player.pos.set(0, 0, 24); player.vel.set(0, 0, 0);
+    clearMedkits(); medT = 8;
     setupFoes(false);
     hurt = 0; shake = 0;
     pips(); updateHud();
     const sub = round === 1
-      ? (level === 3 ? 'El pulpo y la araña · cuidado con la telaraña'
+      ? (level === 4 ? 'El escorpión te espera en el laberinto · esquiva el ácido'
+        : level === 3 ? 'Primero el pulpo · la araña llega a los 6 s'
         : level === 2 ? 'CENTINELA se transforma en pulpo · dispara con dos armas'
         : weapon() === WEAPONS.plasma ? 'CENTINELA lleva un fusil de plasma' : 'Encuentra a CENTINELA')
-      : (level === 3 ? 'Disparan con más precisión' : lvl().the + ' dispara con más precisión');
+      : (level === 3 ? 'Disparan con más precisión' : level === 4 ? 'El escorpión lanza ácido con más precisión' : lvl().the + ' dispara con más precisión');
     showBanner('RONDA ' + round + '<small>' + sub + '</small>', round === 1 && (level > 1 || weapon() === WEAPONS.plasma) ? 2400 : 1600);
   }
   function startMatch() {
@@ -1058,12 +1289,13 @@
     1: { win: 'Has derribado a CENTINELA.', lose: 'CENTINELA se queda con la arena. Muévete entre coberturas y no te quedes quieto en campo abierto.' },
     2: { win: 'Has derrotado al pulpo. CENTINELA no se esperaba esto.', lose: 'El pulpo se queda con la arena. Sus dos armas cubren mucho espacio: muévete de lado y usa los bloques altos.' },
     3: { win: 'Has derrotado al pulpo y a la araña. La arena es tuya.', lose: 'El pulpo y la araña se quedan con la arena. Esquiva la telaraña blanca: si te atrapa, quedas inmóvil 5 segundos.' },
+    4: { win: 'Has vencido al escorpión en su laberinto. CENTINELA se quedó sin formas.', lose: 'El escorpión se queda con el laberinto. Cuando veas el círculo amarillo en el suelo, sal de ahí: es donde cae el ácido.' },
   };
-  const NEXT_NAME = { 2: 'Nivel 2: el pulpo', 3: 'Nivel 3: pulpo y araña' };
+  const NEXT_NAME = { 2: 'Nivel 2: el pulpo', 3: 'Nivel 3: pulpo y araña', 4: 'Nivel 4: el escorpión' };
   function finishMatch() {
     state = 'matchEnd';
     const won = score.p > score.b;
-    $('hud').hidden = true; gun.visible = false; webbed.hidden = true;
+    $('hud').hidden = true; gun.visible = false; webbed.hidden = true; clearMedkits();
     lastResult = { d: difficulty, l: level, p: score.p, b: score.b, t: Math.max(1, Math.round(matchTime)) };
     $('kicker').textContent = (won ? 'Duelo terminado · has ganado' : 'Duelo terminado · has perdido') + ' · Nivel ' + level + ' · ' + DIFFS[difficulty].name;
     $('title').innerHTML = won ? '<span>Victoria</span>' : '<span>Derrota</span>';
@@ -1146,7 +1378,8 @@
     tracer(start, end, 0x8FE3F0);
     if (player.ammo === 0) startReload();
   }
-  const DEATH_COLORS = { human: [0xE0304A, 0xFFB27A, 0x2B2934], octo: [0x6E2547, 0x18C8A8, 0x101018], spider: [0x1C1420, 0x9CFF3A, 0xE8FFC8] };
+  const DEATH_COLORS = { human: [0xE0304A, 0xFFB27A, 0x2B2934], octo: [0x6E2547, 0x18C8A8, 0x101018], spider: [0x1C1420, 0x9CFF3A, 0xE8FFC8],
+                         scorpion: [0x3A2616, 0xF0B020, 0x8C5A28] };
   function damageFoe(f, dmg, at) {
     f.hp -= dmg; f.flash = 0.15; hitT = 0.2; sfx.hit();
     burst(at, 0xFF5A5A, 14, 5, 0.45); burst(at, 0xFFFFFF, 5, 3, 0.2);
@@ -1169,6 +1402,7 @@
     human: (f, W) => [[0.05, 1.42, W.muzzleZ]],
     octo: (f, W) => (W.dual === 'both' ? [[-1.05, 1.4, -1.9], [1.05, 1.4, -1.9]] : [[1.05 * f.gunSide, 1.4, -1.9]]),
     spider: () => [[0.32, 1.56, -1.18]],
+    scorpion: () => [[0, 2.85, 1.0]],
   };
   function toWorld(f, lx, ly, lz) {
     const s = Math.sin(f.yaw), c = Math.cos(f.yaw);
@@ -1181,9 +1415,11 @@
     dir.x += rand(-1, 1) * sp; dir.y += rand(-0.5, 0.5) * sp; dir.z += rand(-1, 1) * sp;
     return dir.normalize();
   }
+  const lvlDmg = (base) => Math.max(1, Math.round(base * (lvl().dmgMul || 1)));
   function botShoot(f, d) {
     f.gunSide *= -1;
     const key = weaponKeyFor(f.kind), W = WEAPONS[key];
+    if (W.lob) { lobAcid(f, d, key, player.pos, player.vel); return; }
     for (const [lx, ly, lz] of MUZZLES[f.kind](f, W)) {
       const origin = toWorld(f, lx, ly, lz);
       const dir = aimAt(origin, W.speed, d);
@@ -1192,9 +1428,105 @@
       core.scale.setScalar(W.size / 0.9);
       g.add(core); g.add(glowSprite(W.glow, W.size));
       g.position.copy(origin); scene.add(g);
-      bullets.push({ g, v: dir.multiplyScalar(W.speed), life: 4, dmg: W.dmg || DIFFS[difficulty].dmg, radar: W.radar });
+      bullets.push({ g, v: dir.multiplyScalar(W.speed), life: 4, dmg: lvlDmg(W.dmg || DIFFS[difficulty].dmg), radar: W.radar });
     }
     sfx[W.sound](Math.max(0.25, 1 - f.pos.distanceTo(player.pos) / 60));
+  }
+  // Scorpion acid bomb: a ballistic arc that can clear walls. A ring on the floor marks the landing spot.
+  const markerGeo = new THREE.RingGeometry(1.7, 2.0, 32);
+  function lobAcid(f, d, key, target, targetVel) {
+    const W = WEAPONS[key];
+    const [lx, ly, lz] = MUZZLES.scorpion()[0];
+    const origin = toWorld(f, lx, ly, lz);
+    const tgt = new V3(target.x, 0, target.z);
+    if (targetVel) tgt.addScaledVector(targetVel, 0.9 * d.lead);
+    tgt.x += rand(-1, 1) * d.spread * 20; tgt.z += rand(-1, 1) * d.spread * 20;
+    resolve(tgt, 0.3);
+    const dx = tgt.x - origin.x, dz = tgt.z - origin.z;
+    const T = Math.max(1.3, Math.min(2.0, Math.hypot(dx, dz) / 10));   // high arc: clears the 3.2 m maze walls
+    const v = new V3(dx / T, (0.5 * GRAV * T * T - origin.y) / T, dz / T);
+    const g = new THREE.Group();
+    const core = new THREE.Mesh(bulletGeo, bulletMats[key]);
+    core.scale.setScalar(W.size / 0.9);
+    g.add(core); g.add(glowSprite(W.glow, W.size * 1.2));
+    g.position.copy(origin); scene.add(g);
+    const marker = new THREE.Mesh(markerGeo, new THREE.MeshBasicMaterial({ color: 0xF5C842, transparent: true, opacity: 0.55, depthWrite: false }));
+    marker.rotation.x = -Math.PI / 2; marker.position.set(tgt.x, 0.05, tgt.z); marker.scale.setScalar(W.splash / 2);
+    scene.add(marker);
+    bullets.push({ g, v, life: 4, lob: true, key, marker, radar: W.radar });
+    f.tailKick = 1;
+    sfx[W.sound](Math.max(0.25, 1 - f.pos.distanceTo(player.pos) / 60));
+  }
+  // Toxic puddles left by acid bombs; standing in one keeps you poisoned
+  const puddles = [];
+  const puddleGeo = new THREE.CircleGeometry(1, 28);
+  function explodeAcid(b) {
+    const W = WEAPONS[b.key], p = b.g.position.clone();
+    burst(p, 0xF0C020, 18, 6, 0.6); burst(p, 0x6B4A1A, 10, 4, 0.5);
+    const d = Math.hypot(player.pos.x - p.x, player.pos.z - p.z);
+    sfx.splash(Math.max(0.3, 1 - d / 40));
+    if (d < W.splash && p.y < 2.6) damagePlayer(lvlDmg(W.dmg * (1 - 0.5 * d / W.splash)));
+    const spot = new V3(p.x, 0, p.z); resolve(spot, 0.4);
+    const m = new THREE.Mesh(puddleGeo, new THREE.MeshBasicMaterial({ color: 0xC8D020, transparent: true, opacity: 0.55, depthWrite: false }));
+    m.rotation.x = -Math.PI / 2; m.position.set(spot.x, 0.04, spot.z); m.scale.setScalar(W.puddle.r);
+    scene.add(m);
+    puddles.push({ m, x: spot.x, z: spot.z, r: W.puddle.r, t: W.puddle.t, max: W.puddle.t, dps: W.puddle.dps });
+    if (b.marker) { scene.remove(b.marker); b.marker.material.dispose(); }
+  }
+  function updatePuddles(dt) {
+    for (let i = puddles.length - 1; i >= 0; i--) {
+      const pd = puddles[i];
+      pd.t -= dt;
+      pd.m.material.opacity = 0.55 * Math.min(1, pd.t);
+      if (player.alive && Math.hypot(player.pos.x - pd.x, player.pos.z - pd.z) < pd.r) {
+        player.poisonT = Math.max(player.poisonT, 1.2); player.poisonDps = Math.max(player.poisonDps, pd.dps);
+      }
+      if (pd.t <= 0) { scene.remove(pd.m); pd.m.material.dispose(); puddles.splice(i, 1); }
+    }
+  }
+  // ---- Medkits: one appears every MED.every seconds (max MED.max on the map); +MED.heal armour
+  const MED = { heal: 35, every: 14, max: 2 };
+  const medkits = [];
+  let medT = 8;
+  const medMat = new THREE.MeshStandardMaterial({
+    roughness: 0.5, emissive: 0x221111,
+    map: canvasTex(64, (g, s) => {
+      g.fillStyle = '#F3EAD7'; g.fillRect(0, 0, s, s);
+      g.fillStyle = '#E0304A'; g.fillRect(s * 0.38, s * 0.14, s * 0.24, s * 0.72); g.fillRect(s * 0.14, s * 0.38, s * 0.72, s * 0.24);
+    }),
+  });
+  const medGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+  function spawnMedkit() {
+    for (let i = 0; i < 30; i++) {
+      const p = new V3(rand(-26, 26), 0, rand(-26, 26)), q = p.clone(); resolve(q, 1.0);
+      if (q.distanceTo(p) > 0.01 || p.distanceTo(player.pos) < 8) continue;
+      const g = new THREE.Group();
+      const box = new THREE.Mesh(medGeo, medMat); box.castShadow = true; g.add(box);
+      g.add(glowSprite(0x7CFF9A, 1.6));
+      g.position.set(p.x, 0.7, p.z); scene.add(g);
+      medkits.push({ g, phase: Math.random() * 6 });
+      return;
+    }
+  }
+  function clearMedkits() { for (const mk of medkits) scene.remove(mk.g); medkits.length = 0; }
+  function updateMedkits(dt) {
+    if (state === 'playing') {
+      medT -= dt;
+      if (medT <= 0) { if (medkits.length < MED.max) spawnMedkit(); medT = MED.every; }
+    }
+    for (let i = medkits.length - 1; i >= 0; i--) {
+      const mk = medkits[i];
+      mk.g.rotation.y += dt * 1.6;
+      mk.g.position.y = 0.7 + Math.sin(time * 2.5 + mk.phase) * 0.12;
+      const d = Math.hypot(player.pos.x - mk.g.position.x, player.pos.z - mk.g.position.z);
+      if (state === 'playing' && player.alive && d < 1.3 && player.hp < 100) {
+        player.hp = Math.min(100, player.hp + MED.heal);
+        player.poisonT = 0;
+        sfx.heal(); flashStatus('+' + MED.heal + ' BLINDAJE', 1.5);
+        burst(mk.g.position, 0x7CFF9A, 14, 4, 0.5);
+        scene.remove(mk.g); medkits.splice(i, 1);
+      }
+    }
   }
   // Spider web: slow and dodgeable, stopped by cover; a hit freezes the player for FREEZE_S seconds
   function throwWeb(f, d) {
@@ -1246,15 +1578,35 @@
     resolve(player.pos, PLAYER_R);
     player.bob += player.vel.length() * dt * 1.7;
 
+    if (player.poisonT > 0 && player.alive && state === 'playing') {
+      player.poisonT -= dt;
+      player.hp -= player.poisonDps * dt;
+      hurt = Math.max(hurt, 0.2);
+      if (player.hp <= 0) { player.hp = 0; player.alive = false; endRound('b'); }
+    } else if (player.poisonT <= 0) player.poisonDps = 0;
+
     player.fireCd -= dt;
     if (player.reload > 0) { player.reload -= dt; if (player.reload <= 0) { player.ammo = MAG; sfx.click(); } }
     if (keys.fire || firePressed || gpad.fire) playerShoot();
     firePressed = false;
   }
 
+  // Direction toward tgt along a grid path, so walls are walked around instead of into
+  function steerTo(f, tgt, dt, radius) {
+    f.pathT -= dt;
+    if (f.pathT <= 0 || !f.path || f.pathTgt.distanceTo(tgt) > 2) {
+      f.path = findPath(f.pos, tgt, radius); f.pathI = 0; f.pathT = 0.5; f.pathTgt.copy(tgt);
+    }
+    const p = f.path;
+    while (f.pathI < p.length - 1 && Math.hypot(p[f.pathI].x - f.pos.x, p[f.pathI].z - f.pos.z) < 1.2) f.pathI++;
+    const wp = p.length ? p[f.pathI] : tgt;
+    return new V3(wp.x - f.pos.x, 0, wp.z - f.pos.z);
+  }
   function updateFoe(f, dt) {
     if (!f.alive) return;
     const d = diffFor(round), K = KINDS[f.kind];
+    f.tailKick = Math.max(0, f.tailKick - dt * 3);
+    if (f.delay > 0) { if (state === 'playing') f.delay -= dt; return; }   // joins the fight a few seconds later
     f.losT -= dt;
     if (f.losT <= 0) {
       f.losT = 0.1;
@@ -1296,7 +1648,15 @@
       const tgt = f.hunting ? f.lastSeen : f.wander;
       const to = new V3(tgt.x - f.pos.x, 0, tgt.z - f.pos.z);
       if (to.length() < 1.6) { if (f.hunting) f.hunting = false; pickWander(f); }
-      else mv.copy(to.normalize());
+      else { const s = steerTo(f, tgt, dt, K.radius); if (s.lengthSq() > 1e-6) mv.copy(s.normalize()); }
+      // The scorpion keeps lobbing acid over walls at where it last saw you
+      if (f.kind === 'scorpion' && f.hunting && state === 'playing') {
+        f.lobCd -= dt;
+        if (f.lobCd <= 0 && f.pos.distanceTo(f.lastSeen) < 22) {
+          lobAcid(f, d, weaponKeyFor('scorpion'), f.lastSeen, null);
+          f.lobCd = d.fire * WEAPONS[weaponKeyFor('scorpion')].cdMul * 1.6;
+        }
+      }
       if (f.vel.lengthSq() > 0.3) f.faceYaw = Math.atan2(-f.vel.x, -f.vel.z);
     }
     if (mv.lengthSq() > 0) mv.normalize().multiplyScalar(d.speed * K.speedMul * (f.sees ? 1 : 0.85));
@@ -1330,6 +1690,19 @@
       const step = b.v.clone().multiplyScalar(dt);
       let dead = false;
       if (b.web) b.g.material.rotation += dt * 4;
+      if (b.lob) {
+        for (let s = 0; s < 3 && !dead; s++) {
+          b.v.y -= GRAV * dt / 3;
+          b.g.position.addScaledVector(b.v, dt / 3);
+          const p = b.g.position;
+          const dx = p.x - player.pos.x, dz = p.z - player.pos.z;
+          const hitPlayer = player.alive && dx * dx + dz * dz < 0.6 * 0.6 && p.y < 1.9;
+          if (hitPlayer || p.y <= 0.05 || insideSolid(p)) { explodeAcid(b); dead = true; }
+        }
+        b.life -= dt;
+        if (dead || b.life <= 0) { if (!dead && b.marker) scene.remove(b.marker); scene.remove(b.g); bullets.splice(i, 1); }
+        continue;
+      }
       // sub-step to avoid tunnelling
       for (let s = 0; s < 3 && !dead; s++) {
         b.g.position.addScaledVector(step, 1 / 3);
@@ -1376,6 +1749,17 @@
         tn.joints.forEach((j, k) => { j.rotation.x = (k === 0 ? -1.0 : 0.22) + Math.sin(time * (2.2 + spd * 0.5) + k * 0.7 + tn.phase) * amp; });
       }
       setFlash(octoSkin, f.flash > 0, 0.9);
+    } else if (f.kind === 'scorpion') {
+      f.walk += spd * dt * 2.8;
+      g.position.set(f.pos.x, Math.abs(Math.sin(f.walk * 2)) * 0.03 * Math.min(1, spd / 3), f.pos.z);
+      g.rotation.y = f.yaw;
+      poseScorpion(f.walk, Math.min(1, spd / 3));
+      g.userData.tail.rotation.x = Math.sin(time * 2) * 0.06 - f.tailKick * 0.35;
+      for (const c of g.userData.claws) {
+        const snap = Math.max(0, Math.sin(time * 5 + c.sx)) * 0.25;
+        c.j1.rotation.y = c.sx * (0.2 + snap); c.j2.rotation.y = -c.sx * (0.2 + snap);
+      }
+      setFlash(scorpShell, f.flash > 0, 0.9);
     } else if (f.kind === 'spider') {
       f.walk += spd * dt * 3.2;
       g.position.set(f.pos.x, Math.abs(Math.sin(f.walk * 2)) * 0.03 * Math.min(1, spd / 3), f.pos.z);
@@ -1434,6 +1818,8 @@
     const dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
     resize();
     pollGamepad();
+    if (paused) { renderer.render(scene, camera); requestAnimationFrame(frame); return; }
+    statusT = Math.max(0, statusT - dt);
     if (state === 'playing') { matchTime += dt; updatePlayer(dt); updateFoes(dt); }
     else if (state === 'menu' || state === 'matchEnd') { updateFoes(dt); }
     else if (state === 'roundEnd') {
@@ -1444,7 +1830,7 @@
         else { round++; resetRound(); state = 'playing'; }
       }
     }
-    updateBullets(dt); updateFx(dt);
+    updateBullets(dt); updateFx(dt); updatePuddles(dt); updateMedkits(dt);
     applyFoesVisual(dt); applyCamera(dt);
     if (state !== 'menu' && state !== 'matchEnd') { updateHud(); drawRadar(); }
     renderer.render(scene, camera);
