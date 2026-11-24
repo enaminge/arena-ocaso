@@ -108,9 +108,9 @@
   .card { width: 100%; max-width: 540px; display: grid; gap: 18px; margin-block: auto; }
 
   /* Difficulty selector */
-  .diff { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; gap: 8px; }
+  .diff { border: 0; margin: 0; padding: 0; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   .diff legend { padding: 0; margin-bottom: 8px; }
-  .seg { display: flex; flex-wrap: wrap; width: max-content; max-width: 100%; border: 1px solid rgba(243,234,215,.4); }
+  .seg { display: flex; flex-wrap: wrap; width: max-content; max-width: 100%; box-sizing: border-box; border: 1px solid rgba(243,234,215,.4); }
   .seg input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
   .seg label { padding: 10px 20px; font: 600 14px "Chakra Petch", sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); cursor: pointer; }
   .seg label:not(:first-of-type) { border-left: 1px solid rgba(243,234,215,.25); }
